@@ -1,100 +1,89 @@
-# .github/workflows/build-ios-unsigned.yml
-#
-# Builds an UNSIGNED iOS .ipa from a Godot project, with no Mac of your own.
-# The signing happens later, on your iPhone, via SideStore / AltStore.
-#
-# BEFORE YOU USE THIS, change the two values marked  <-- CHANGE  below:
-#   1. GODOT_VERSION  -> the exact version you built your game in (e.g. 4.7)
-#   2. EXPORT_PRESET  -> the exact name of your iOS export preset in Project -> Export
+name: Build iOS unsigned IPA
 
-name: Build iOS (unsigned)
-
-# ---- TRIGGERS: when does this run? -------------------------------------------
 on:
-  workflow_dispatch:        # adds a "Run workflow" button in the Actions tab (manual)
-  push:
-    tags:
-      - "ios-*"             # also runs when you push a tag like ios-v1, ios-test2
+  workflow_dispatch:
 
-# ---- JOB: one machine, a list of steps ---------------------------------------
 jobs:
   build-ios:
-    runs-on: macos-latest   # <- this is our "borrowed Mac". iOS builds NEED macOS.
+    runs-on: macos-latest
 
     env:
-      GODOT_VERSION: "4.7"     # <-- CHANGE to your exact Godot version
-      EXPORT_PRESET: "iOS"       # <-- CHANGE to your preset's exact name
+      GODOT_VERSION: "4.7"
+      EXPORT_PRESET: "iOS"
 
     steps:
-      # 1. Pull your project source onto the runner.
-      - name: Check out the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Download the Godot editor (macOS build) + the iOS export templates,
-      #    and put the templates where Godot expects to find them.
       - name: Install Godot and export templates
         run: |
           set -e
           BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
 
-          # Godot editor for macOS (headless-capable: we run it with --headless)
           curl -L -o godot.zip "${BASE}/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
           unzip -q godot.zip
+
           GODOT_BIN="$(pwd)/Godot.app/Contents/MacOS/Godot"
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
-          # Export templates (the prebuilt engine binaries for each platform)
           curl -L -o templates.tpz "${BASE}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          unzip -q templates.tpz            # unzips into a folder named "templates"
+          unzip -q templates.tpz
+
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$TEMPLATE_DIR"
           mv templates/* "$TEMPLATE_DIR"/
 
-      # 3. "Pre-heat" the import cache. On a fresh machine Godot hasn't imported
-      #    your assets yet; exporting without this often crashes. This does a
-      #    one-off editor pass to build the .godot/ cache, then quits.
-      - name: Import assets (pre-heat cache)
+      - name: Import Godot assets
         run: |
-          "$GODOT_BIN" --headless --import . || true
+          "$GODOT_BIN" --headless --path . --import || true
 
-      # 4. Export the iOS Xcode project from your preset (headless = no window).
-      #    Godot produces an Xcode project, not a finished app.
-      - name: Export iOS Xcode project
+      - name: Export iOS Xcode project ZIP
         run: |
           set -e
           mkdir -p build/ios
-          "$GODOT_BIN" --headless --export-release "${EXPORT_PRESET}" build/ios/index
-          find build/ios -maxdepth 3 -type f | head -50
+          "$GODOT_BIN" --headless --path . --export-release "$EXPORT_PRESET" build/ios/ios_project.zip
 
-      # 5. Compile with Xcode, WITHOUT signing, then repackage into a .ipa.
-      #    An .ipa is just a zip with a Payload/ folder holding the .app.
-      - name: Build unsigned .ipa
+      - name: Unzip Xcode project
         run: |
           set -e
-          XCODEPROJ="$(find build/ios -name '*.xcodeproj' | head -n 1)"
-          SCHEME="$(basename "$XCODEPROJ" .xcodeproj)"
-          echo "Using project: $XCODEPROJ  (scheme: $SCHEME)"
+          mkdir -p build/ios/unzipped
+          unzip -q build/ios/ios_project.zip -d build/ios/unzipped
+          find build/ios/unzipped -name "*.xcodeproj"
 
-          xcodebuild -project "$XCODEPROJ" \
+      - name: Build unsigned app
+        run: |
+          set -e
+
+          XCODEPROJ="$(find build/ios/unzipped -name '*.xcodeproj' | head -n 1)"
+          SCHEME="$(xcodebuild -list -json -project "$XCODEPROJ" | python3 -c 'import sys,json; print(json.load(sys.stdin)["project"]["schemes"][0])')"
+
+          echo "Project: $XCODEPROJ"
+          echo "Scheme: $SCHEME"
+
+          mkdir -p build/ios/app
+
+          xcodebuild \
+            -project "$XCODEPROJ" \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            clean archive \
-            -archivePath "$RUNNER_TEMP/app.xcarchive" \
-            CODE_SIGN_IDENTITY="" \
+            CONFIGURATION_BUILD_DIR="$PWD/build/ios/app" \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="" \
+            build
 
-          # Turn the archived .app into an unsigned .ipa
-          cd "$RUNNER_TEMP/app.xcarchive/Products"
-          mv Applications Payload
-          zip -qr "$GITHUB_WORKSPACE/${SCHEME}-unsigned.ipa" Payload
+      - name: Package unsigned IPA
+        run: |
+          set -e
+          APP_PATH="$(find build/ios/app -name '*.app' | head -n 1)"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qr GodotTouchDemo-unsigned.ipa Payload
 
-      # 6. Upload the .ipa so you can download it from the run's summary page.
-      - name: Upload the unsigned .ipa
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
-          path: "*.ipa"
-          if-no-files-found: error
+          path: GodotTouchDemo-unsigned.ipa
