@@ -63,14 +63,15 @@ jobs:
         run: |
           set -e
           mkdir -p build/ios
-          "$GODOT_BIN" --headless --export-release "${EXPORT_PRESET}" build/ios/index.xcodeproj
+          "$GODOT_BIN" --headless --export-release "${EXPORT_PRESET}" build/ios/index
+          find build/ios -maxdepth 3 -type f | head -50
 
       # 5. Compile with Xcode, WITHOUT signing, then repackage into a .ipa.
       #    An .ipa is just a zip with a Payload/ folder holding the .app.
       - name: Build unsigned .ipa
         run: |
           set -e
-          XCODEPROJ="$(find build/ios -maxdepth 2 -name '*.xcodeproj' | head -n 1)"
+          XCODEPROJ="$(find build/ios -name '*.xcodeproj' | head -n 1)"
           SCHEME="$(basename "$XCODEPROJ" .xcodeproj)"
           echo "Using project: $XCODEPROJ  (scheme: $SCHEME)"
 
