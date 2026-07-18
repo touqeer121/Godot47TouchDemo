@@ -37,24 +37,18 @@ jobs:
         run: |
           "$GODOT_BIN" --headless --path . --import || true
 
-      - name: Export iOS Xcode project ZIP
+      - name: Export iOS Xcode project
         run: |
           set -e
           mkdir -p build/ios
           "$GODOT_BIN" --headless --path . --export-release "$EXPORT_PRESET" build/ios/ios_project.zip
-
-      - name: Unzip Xcode project
-        run: |
-          set -e
-          mkdir -p build/ios/unzipped
-          unzip -q build/ios/ios_project.zip -d build/ios/unzipped
-          find build/ios/unzipped -name "*.xcodeproj"
+          find build/ios -name "*.xcodeproj"
 
       - name: Build unsigned app
         run: |
           set -e
 
-          XCODEPROJ="$(find build/ios/unzipped -name '*.xcodeproj' | head -n 1)"
+          XCODEPROJ="$(find build/ios -name '*.xcodeproj' | head -n 1)"
           SCHEME="$(xcodebuild -list -json -project "$XCODEPROJ" | python3 -c 'import sys,json; print(json.load(sys.stdin)["project"]["schemes"][0])')"
 
           echo "Project: $XCODEPROJ"
