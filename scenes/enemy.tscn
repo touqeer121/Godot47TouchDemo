@@ -25,7 +25,7 @@ texture = ExtResource("2")
 
 [node name="Gun" type="Sprite2D" parent="."]
 position = Vector2(4, 14)
-scale = Vector2(0.6, 0.6)
+scale = Vector2(0.93, 0.93)
 texture = ExtResource("3")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
