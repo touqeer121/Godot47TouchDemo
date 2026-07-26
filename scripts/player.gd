@@ -23,6 +23,7 @@ const BULLET := preload("res://scenes/bullet.tscn")
 const GRENADE := preload("res://scenes/grenade.tscn")
 const ENEMY := preload("res://scenes/enemy.tscn")
 const ENEMY_BIG := preload("res://scenes/enemy_big.tscn")
+const ENEMY_GUNNER := preload("res://scenes/enemy_gunner.tscn")
 
 const TEX_PISTOL := preload("res://assets/weapons/pistol.png")
 const TEX_SMG := preload("res://assets/weapons/pistol3.png")
@@ -210,9 +211,9 @@ func _next_wave():
 	spawning = true
 	if wave_label:
 		wave_label.text = "WAVE %d" % wave
-	var count: int = min(4 + wave, 12)
+	var count: int = min(3 + wave, 10)
 	for i in count:
-		get_tree().create_timer(i * 0.28).timeout.connect(_spawn_one)
+		get_tree().create_timer(i * 0.3).timeout.connect(_spawn_one)
 	get_tree().create_timer(count * 0.28 + 0.15).timeout.connect(func():
 		spawning = false
 		if enemies_alive <= 0:
@@ -220,8 +221,15 @@ func _next_wave():
 	)
 
 func _spawn_one():
-	var big: bool = wave >= 3 and randf() < 0.25
-	var e: CharacterBody2D = (ENEMY_BIG if big else ENEMY).instantiate()
+	# Mix of melee chasers, ranged gunners (from wave 2), and big tanks
+	# (from wave 3). Gunners are a minority and fire slowly so it stays fair.
+	var r := randf()
+	var scene := ENEMY
+	if wave >= 3 and r < 0.20:
+		scene = ENEMY_BIG
+	elif wave >= 2 and r < 0.48:
+		scene = ENEMY_GUNNER
+	var e: CharacterBody2D = scene.instantiate()
 	e.max_health = e.max_health + int(wave / 2)
 	e.global_position = _pick_spawn()
 	add_child(e)

@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3 uid="uid://b4k9w2mq7nxv5"]
+
+[ext_resource type="Script" path="res://scripts/enemy.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dhhs50hq4ceka" path="res://icon.svg" id="2"]
+
+[sub_resource type="RectangleShape2D" id="BodyShape"]
+size = Vector2(112, 129)
+
+[sub_resource type="RectangleShape2D" id="TouchShape"]
+size = Vector2(124, 142)
+
+[node name="EnemyGunner" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1")
+max_health = 4
+speed = 68.0
+contact_damage = 1
+can_shoot = true
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(1, 0.55, 0.2, 1)
+scale = Vector2(1.008, 1.008)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("BodyShape")
+
+[node name="TouchBox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TouchBox"]
+shape = SubResource("TouchShape")
+
+[node name="FloorCheck" type="RayCast2D" parent="."]
+position = Vector2(54, 0)
+target_position = Vector2(0, 86)

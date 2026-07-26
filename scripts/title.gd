@@ -12,6 +12,16 @@ var started := false
 func _ready():
 	var vp := get_viewport().get_visible_rect().size
 
+	var music := AudioStreamPlayer.new()
+	var ms = load("res://audio/menu_music.wav")
+	if ms is AudioStreamWAV:
+		ms.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		ms.loop_end = ms.data.size() / 2
+	music.stream = ms
+	music.volume_db = -11.0
+	add_child(music)
+	music.play()
+
 	title_group = Node2D.new()
 	title_group.position = Vector2(vp.x / 2.0, vp.y * 0.40)
 	add_child(title_group)

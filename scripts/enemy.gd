@@ -8,6 +8,7 @@ extends CharacterBody2D
 @export var max_health := 3
 @export var speed := 90.0
 @export var contact_damage := 1
+@export var can_shoot := false
 
 var health := 3
 var dir := 1
@@ -17,8 +18,12 @@ var base_scale: Vector2
 var base_color: Color
 var fc_offset := 40.0
 var target: Node2D
+var shoot_timer := 1.0
 
 const GRAVITY := 2000.0
+const SHOOT_RANGE := 820.0
+const SHOOT_INTERVAL := 1.9
+const E_BULLET := preload("res://scenes/enemy_bullet.tscn")
 
 func _ready():
 	add_to_group("enemies")
@@ -55,6 +60,19 @@ func _physics_process(delta):
 	move_and_slide()
 
 	sprite.scale.x = base_scale.x * (1.0 if dir > 0 else -1.0)
+
+	if can_shoot and is_instance_valid(target):
+		shoot_timer -= delta
+		if shoot_timer <= 0.0 and global_position.distance_to(target.global_position) < SHOOT_RANGE:
+			shoot_timer = SHOOT_INTERVAL
+			_shoot_at(target.global_position)
+
+func _shoot_at(pos: Vector2):
+	var to := (pos - global_position).normalized()
+	var b := E_BULLET.instantiate()
+	b.velocity = to * 640.0
+	b.global_position = global_position + to * 55.0
+	get_parent().add_child(b)
 
 func take_damage(amount: int, from_pos: Vector2 = Vector2.ZERO):
 	if dead:
