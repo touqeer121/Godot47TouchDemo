@@ -66,7 +66,25 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            DEPLOYMENT_POSTPROCESSING=YES \
+            STRIP_INSTALLED_PRODUCT=YES \
+            STRIP_STYLE=all \
+            DEAD_CODE_STRIPPING=YES \
+            GCC_GENERATE_DEBUGGING_SYMBOLS=NO \
             build
+
+      - name: Strip and report app size
+        run: |
+          set -e
+          APP="$(find build/ios/app -name '*.app' | head -n 1)"
+          EXE="$(plutil -extract CFBundleExecutable raw "$APP/Info.plist")"
+          BIN="$APP/$EXE"
+          echo "Executable: $EXE"
+          echo "Binary size before extra strip:"; ls -lh "$BIN" | awk '{print $5}'
+          # Belt-and-suspenders: strip local + debug symbols from the Mach-O.
+          strip -Sx "$BIN" || true
+          echo "Binary size after strip:"; ls -lh "$BIN" | awk '{print $5}'
+          echo "App bundle size:"; du -sh "$APP" | awk '{print $1}'
 
       - name: Package unsigned IPA
         run: |
@@ -74,7 +92,8 @@ jobs:
           APP_PATH="$(find build/ios/app -name '*.app' | head -n 1)"
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
-          zip -qr GodotTouchDemo-unsigned.ipa Payload
+          zip -qr -9 GodotTouchDemo-unsigned.ipa Payload
+          echo "IPA size:"; ls -lh GodotTouchDemo-unsigned.ipa | awk '{print $5}'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
