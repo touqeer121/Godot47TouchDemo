@@ -6,15 +6,70 @@
 [ext_resource type="Texture2D" uid="uid://bnm7qnxqrxd22" path="res://light_glow.svg" id="4_glow"]
 [ext_resource type="Shader" uid="uid://bytx1up6f3o8b" path="res://shaders/stars.gdshader" id="5_stars"]
 [ext_resource type="Shader" uid="uid://ddw8t626jyp1n" path="res://shaders/fire.gdshader" id="6_fire"]
+[ext_resource type="Texture2D" uid="uid://dyvdl6p37ir4v" path="res://raindrop.svg" id="7_raindrop"]
+[ext_resource type="Texture2D" uid="uid://cguie4fqmyw3x" path="res://assets/weapons/pistol.png" id="8_pistol"]
+[ext_resource type="PackedScene" uid="uid://d2y7m4qk8wxr3" path="res://scenes/enemy.tscn" id="9_enemy"]
+
+[sub_resource type="ShaderMaterial" id="StarsMaterial"]
+shader = ExtResource("5_stars")
+
+[sub_resource type="OccluderPolygon2D" id="GroundOccluder"]
+polygon = PackedVector2Array(-100, 640, 950, 640, 950, 790, -100, 790)
 
 [sub_resource type="RectangleShape2D" id="GroundShape"]
 size = Vector2(2166, 150)
 
+[sub_resource type="OccluderPolygon2D" id="Platform1Occluder"]
+polygon = PackedVector2Array(971.5, 560, 1308.5, 560, 1308.5, 622.4, 971.5, 622.4)
+
 [sub_resource type="RectangleShape2D" id="PlatformShape"]
 size = Vector2(337, 62.4)
 
+[sub_resource type="OccluderPolygon2D" id="Platform2Occluder"]
+polygon = PackedVector2Array(1251.5, 460, 1588.5, 460, 1588.5, 522.4, 1251.5, 522.4)
+
+[sub_resource type="OccluderPolygon2D" id="Platform3Occluder"]
+polygon = PackedVector2Array(1531.5, 560, 1868.5, 560, 1868.5, 622.4, 1531.5, 622.4)
+
+[sub_resource type="OccluderPolygon2D" id="Platform4Occluder"]
+polygon = PackedVector2Array(1811.5, 380, 2148.5, 380, 2148.5, 442.4, 1811.5, 442.4)
+
+[sub_resource type="OccluderPolygon2D" id="Platform5Occluder"]
+polygon = PackedVector2Array(2091.5, 500, 2428.5, 500, 2428.5, 562.4, 2091.5, 562.4)
+
+[sub_resource type="OccluderPolygon2D" id="Platform6Occluder"]
+polygon = PackedVector2Array(2371.5, 600, 2708.5, 600, 2708.5, 662.4, 2371.5, 662.4)
+
+[sub_resource type="OccluderPolygon2D" id="Platform7Occluder"]
+polygon = PackedVector2Array(2525.5, 640, 3405.5, 640, 3405.5, 702.4, 2525.5, 702.4)
+
 [sub_resource type="RectangleShape2D" id="Platform7Shape"]
 size = Vector2(880, 62.4)
+
+[sub_resource type="OccluderPolygon2D" id="P8Occ"]
+polygon = PackedVector2Array(4020, 600, 4340, 600, 4340, 662, 4020, 662)
+[sub_resource type="RectangleShape2D" id="P8Shape"]
+size = Vector2(320, 62)
+[sub_resource type="OccluderPolygon2D" id="P9Occ"]
+polygon = PackedVector2Array(4480, 500, 4760, 500, 4760, 562, 4480, 562)
+[sub_resource type="RectangleShape2D" id="P9Shape"]
+size = Vector2(280, 62)
+[sub_resource type="OccluderPolygon2D" id="P10Occ"]
+polygon = PackedVector2Array(4900, 590, 5260, 590, 5260, 652, 4900, 652)
+[sub_resource type="RectangleShape2D" id="P10Shape"]
+size = Vector2(360, 62)
+[sub_resource type="OccluderPolygon2D" id="P11Occ"]
+polygon = PackedVector2Array(5400, 470, 5720, 470, 5720, 532, 5400, 532)
+[sub_resource type="RectangleShape2D" id="P11Shape"]
+size = Vector2(320, 62)
+[sub_resource type="OccluderPolygon2D" id="P12Occ"]
+polygon = PackedVector2Array(4300, 380, 4600, 380, 4600, 442, 4300, 442)
+[sub_resource type="RectangleShape2D" id="P12Shape"]
+size = Vector2(300, 62)
+[sub_resource type="OccluderPolygon2D" id="P13Occ"]
+polygon = PackedVector2Array(5850, 620, 6400, 620, 6400, 682, 5850, 682)
+[sub_resource type="RectangleShape2D" id="P13Shape"]
+size = Vector2(550, 62)
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_glow"]
 blend_mode = 1
@@ -54,13 +109,10 @@ scale_max = 0.18
 color_ramp = SubResource("EmberGradientTex")
 
 [sub_resource type="RectangleShape2D" id="PlayerShape"]
-size = Vector2(124, 143)
-
-[sub_resource type="ShaderMaterial" id="StarsMaterial"]
-shader = ExtResource("5_stars")
+size = Vector2(112, 129)
 
 [sub_resource type="Gradient" id="RainGradient"]
-colors = PackedColorArray(0.75, 0.85, 1, 0.55, 0.75, 0.85, 1, 0.15)
+colors = PackedColorArray(0.75, 0.85, 1, 0.6, 0.75, 0.85, 1, 0.25)
 
 [sub_resource type="GradientTexture1D" id="RainGradientTex"]
 gradient = SubResource("RainGradient")
@@ -69,13 +121,34 @@ gradient = SubResource("RainGradient")
 emission_shape = 3
 emission_box_extents = Vector3(800, 10, 1)
 direction = Vector3(0, 1, 0)
-spread = 4.0
-initial_velocity_min = 400.0
-initial_velocity_max = 600.0
-gravity = Vector3(0, 900, 0)
-scale_min = 0.05
-scale_max = 0.1
+spread = 2.0
+initial_velocity_min = 550.0
+initial_velocity_max = 750.0
+gravity = Vector3(0, 1300, 0)
+scale_min = 0.5
+scale_max = 0.85
 color_ramp = SubResource("RainGradientTex")
+collision_mode = 2
+sub_emitter_mode = 3
+sub_emitter_amount_at_collision = 4
+
+[sub_resource type="Gradient" id="SplashGradient"]
+offsets = PackedFloat32Array(0, 0.15, 1)
+colors = PackedColorArray(0.85, 0.92, 1, 0, 0.85, 0.92, 1, 0.85, 0.85, 0.92, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="SplashGradientTex"]
+gradient = SubResource("SplashGradient")
+
+[sub_resource type="ParticleProcessMaterial" id="SplashMaterial"]
+lifetime_randomness = 1.0
+direction = Vector3(0, -1, 0)
+spread = 25.0
+initial_velocity_min = 60.0
+initial_velocity_max = 120.0
+gravity = Vector3(0, 500, 0)
+scale_min = 0.05
+scale_max = 0.12
+color_ramp = SubResource("SplashGradientTex")
 
 [sub_resource type="CircleShape2D" id="ButtonShape"]
 radius = 78.0
@@ -86,6 +159,13 @@ script = ExtResource("1")
 [node name="CanvasModulate" type="CanvasModulate" parent="." unique_id=491378722]
 color = Color(0.55, 0.55, 0.72, 1)
 
+[node name="Stars" type="Sprite2D" parent="." unique_id=1709374599]
+z_index = -100
+material = SubResource("StarsMaterial")
+position = Vector2(700, 100)
+scale = Vector2(29, 9)
+texture = ExtResource("4_glow")
+
 [node name="GroundBody2" type="StaticBody2D" parent="." unique_id=2132362980]
 metadata/_edit_group_ = true
 
@@ -94,6 +174,9 @@ position = Vector2(-1009.7143, -6.1035156e-05)
 scale = Vector2(2.0628572, 1)
 color = Color(0.30588236, 0.8039216, 0.76862746, 1)
 polygon = PackedVector2Array(-100, 640, 950, 640, 950, 790, -100, 790)
+
+[node name="RainOccluder" type="LightOccluder2D" parent="GroundBody2/Ground" unique_id=523491591]
+occluder = SubResource("GroundOccluder")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="GroundBody2" unique_id=2136053801]
 position = Vector2(-133, 715)
@@ -109,6 +192,9 @@ scale = Vector2(2.0628572, 1)
 color = Color(0.30588236, 0.8039216, 0.76862746, 1)
 polygon = PackedVector2Array(-100, 640, 950, 640, 950, 790, -100, 790)
 
+[node name="RainOccluder" type="LightOccluder2D" parent="GroundBody/Ground" unique_id=1354731236]
+occluder = SubResource("GroundOccluder")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="GroundBody" unique_id=1882966313]
 position = Vector2(-133, 715)
 shape = SubResource("GroundShape")
@@ -119,6 +205,9 @@ metadata/_edit_group_ = true
 [node name="Platform1" type="Polygon2D" parent="Platform1Body" unique_id=1150009266]
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(971.5, 560, 1308.5, 560, 1308.5, 622.4, 971.5, 622.4)
+
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform1Body/Platform1" unique_id=1313786748]
+occluder = SubResource("Platform1Occluder")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform1Body" unique_id=768228197]
 position = Vector2(1140, 591.2)
@@ -131,6 +220,9 @@ metadata/_edit_group_ = true
 [node name="Platform2" type="Polygon2D" parent="Platform2Body" unique_id=1667101817]
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(1251.5, 460, 1588.5, 460, 1588.5, 522.4, 1251.5, 522.4)
+
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform2Body/Platform2" unique_id=891303720]
+occluder = SubResource("Platform2Occluder")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform2Body" unique_id=650973548]
 position = Vector2(1420, 491.2)
@@ -145,6 +237,9 @@ metadata/_edit_group_ = true
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(1531.5, 560, 1868.5, 560, 1868.5, 622.4, 1531.5, 622.4)
 
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform3Body/Platform3" unique_id=1200273291]
+occluder = SubResource("Platform3Occluder")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform3Body" unique_id=1635410465]
 position = Vector2(1700, 591.2)
 shape = SubResource("PlatformShape")
@@ -156,6 +251,9 @@ metadata/_edit_group_ = true
 [node name="Platform4" type="Polygon2D" parent="Platform4Body" unique_id=1096031030]
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(1811.5, 380, 2148.5, 380, 2148.5, 442.4, 1811.5, 442.4)
+
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform4Body/Platform4" unique_id=415658848]
+occluder = SubResource("Platform4Occluder")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform4Body" unique_id=901415483]
 position = Vector2(1980, 411.2)
@@ -169,6 +267,9 @@ metadata/_edit_group_ = true
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(2091.5, 500, 2428.5, 500, 2428.5, 562.4, 2091.5, 562.4)
 
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform5Body/Platform5" unique_id=651525202]
+occluder = SubResource("Platform5Occluder")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform5Body" unique_id=1872066728]
 position = Vector2(2260, 531.2)
 shape = SubResource("PlatformShape")
@@ -180,6 +281,9 @@ metadata/_edit_group_ = true
 [node name="Platform6" type="Polygon2D" parent="Platform6Body" unique_id=1063744601]
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(2371.5, 600, 2708.5, 600, 2708.5, 662.4, 2371.5, 662.4)
+
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform6Body/Platform6" unique_id=954226576]
+occluder = SubResource("Platform6Occluder")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform6Body" unique_id=2066347444]
 position = Vector2(2540, 631.2)
@@ -193,12 +297,75 @@ metadata/_edit_group_ = true
 color = Color(0.98, 0.75, 0.35, 1)
 polygon = PackedVector2Array(2525.5, 640, 3405.5, 640, 3405.5, 702.4, 2525.5, 702.4)
 
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform7Body/Platform7" unique_id=1918564335]
+occluder = SubResource("Platform7Occluder")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform7Body" unique_id=867917452]
 position = Vector2(2965.5, 671.2)
 shape = SubResource("Platform7Shape")
 
+[node name="Platform8Body" type="StaticBody2D" parent="."]
+[node name="Platform8" type="Polygon2D" parent="Platform8Body"]
+color = Color(0.98, 0.75, 0.35, 1)
+polygon = PackedVector2Array(4020, 600, 4340, 600, 4340, 662, 4020, 662)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform8Body/Platform8"]
+occluder = SubResource("P8Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform8Body"]
+position = Vector2(4180, 631)
+shape = SubResource("P8Shape")
+
+[node name="Platform9Body" type="StaticBody2D" parent="."]
+[node name="Platform9" type="Polygon2D" parent="Platform9Body"]
+color = Color(0.98, 0.75, 0.35, 1)
+polygon = PackedVector2Array(4480, 500, 4760, 500, 4760, 562, 4480, 562)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform9Body/Platform9"]
+occluder = SubResource("P9Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform9Body"]
+position = Vector2(4620, 531)
+shape = SubResource("P9Shape")
+
+[node name="Platform10Body" type="StaticBody2D" parent="."]
+[node name="Platform10" type="Polygon2D" parent="Platform10Body"]
+color = Color(0.98, 0.75, 0.35, 1)
+polygon = PackedVector2Array(4900, 590, 5260, 590, 5260, 652, 4900, 652)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform10Body/Platform10"]
+occluder = SubResource("P10Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform10Body"]
+position = Vector2(5080, 621)
+shape = SubResource("P10Shape")
+
+[node name="Platform11Body" type="StaticBody2D" parent="."]
+[node name="Platform11" type="Polygon2D" parent="Platform11Body"]
+color = Color(0.98, 0.75, 0.35, 1)
+polygon = PackedVector2Array(5400, 470, 5720, 470, 5720, 532, 5400, 532)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform11Body/Platform11"]
+occluder = SubResource("P11Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform11Body"]
+position = Vector2(5560, 501)
+shape = SubResource("P11Shape")
+
+[node name="Platform12Body" type="StaticBody2D" parent="."]
+[node name="Platform12" type="Polygon2D" parent="Platform12Body"]
+color = Color(0.98, 0.86, 0.5, 1)
+polygon = PackedVector2Array(4300, 380, 4600, 380, 4600, 442, 4300, 442)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform12Body/Platform12"]
+occluder = SubResource("P12Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform12Body"]
+position = Vector2(4450, 411)
+shape = SubResource("P12Shape")
+
+[node name="Platform13Body" type="StaticBody2D" parent="."]
+[node name="Platform13" type="Polygon2D" parent="Platform13Body"]
+color = Color(0.36, 0.82, 0.78, 1)
+polygon = PackedVector2Array(5850, 620, 6400, 620, 6400, 682, 5850, 682)
+[node name="RainOccluder" type="LightOccluder2D" parent="Platform13Body/Platform13"]
+occluder = SubResource("P13Occ")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform13Body"]
+position = Vector2(6125, 651)
+shape = SubResource("P13Shape")
+
 [node name="MoonGlow" type="Sprite2D" parent="." unique_id=1933396005]
-modulate = Color(1, 0.95, 0.75, 0.35)
+modulate = Color(0.99875695, 0.9796323, 0.2762233, 0.34901962)
 material = SubResource("CanvasItemMaterial_glow")
 position = Vector2(776, 64)
 scale = Vector2(5, 5)
@@ -206,7 +373,7 @@ texture = ExtResource("4_glow")
 metadata/_edit_group_ = true
 
 [node name="Moon" type="Sprite2D" parent="." unique_id=2145811850]
-modulate = Color(0.95, 0.93, 0.78, 1)
+modulate = Color(0.96510166, 0.95538694, 0.3374319, 1)
 position = Vector2(776, 64)
 scale = Vector2(1.6, 1.6)
 texture = ExtResource("3_circle")
@@ -219,20 +386,22 @@ texture = ExtResource("4_glow")
 texture_scale = 6.0
 
 [node name="Fire" type="Sprite2D" parent="." unique_id=309825320]
+visible = false
 material = SubResource("FireMaterial")
-position = Vector2(700, 530)
+position = Vector2(-296.00003, 376.00003)
 scale = Vector2(0.469, 0.859)
 texture = ExtResource("4_glow")
+metadata/_edit_group_ = true
 
 [node name="Smoke" type="GPUParticles2D" parent="." unique_id=2109372328]
-position = Vector2(700, 420)
+position = Vector2(-736, 352)
 amount = 16
 texture = ExtResource("4_glow")
 lifetime = 3.5
 process_material = SubResource("SmokeMaterial")
 
 [node name="Embers" type="GPUParticles2D" parent="." unique_id=130215204]
-position = Vector2(700, 600)
+position = Vector2(-296, 312)
 amount = 20
 texture = ExtResource("4_glow")
 lifetime = 1.6
@@ -240,33 +409,59 @@ process_material = SubResource("EmberMaterial")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=745640042]
 position = Vector2(250, 568.5)
+collision_layer = 2
+collision_mask = 1
 
 [node name="Sprite2D" type="Sprite2D" parent="Player" unique_id=679802882]
-modulate = Color(1, 0.15, 0.4, 1)
-scale = Vector2(1.12, 1.12)
+modulate = Color(1, 0.18561426, 0.26167744, 1)
+scale = Vector2(1.008, 1.008)
 texture = ExtResource("2_0wfyh")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=677433230]
 shape = SubResource("PlayerShape")
+
+[node name="Gun" type="Node2D" parent="Player" unique_id=336063083]
+position = Vector2(0, 6)
+
+[node name="GunSprite" type="Sprite2D" parent="Player/Gun" unique_id=797364628]
+position = Vector2(26, 0)
+scale = Vector2(0.93, 0.93)
+texture = ExtResource("8_pistol")
+
+[node name="Muzzle" type="Marker2D" parent="Player/Gun/GunSprite" unique_id=1167530058]
+position = Vector2(47, -9)
+
+[node name="MuzzleFlash" type="Sprite2D" parent="Player/Gun/GunSprite/Muzzle"]
+visible = false
+modulate = Color(1, 0.85, 0.5, 1)
+scale = Vector2(0.3, 0.3)
+material = SubResource("CanvasItemMaterial_glow")
+texture = ExtResource("4_glow")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=325765586]
 position = Vector2(250, 300)
 zoom = Vector2(0.85, 0.85)
 position_smoothing_enabled = true
 
-[node name="Stars" type="Sprite2D" parent="." unique_id=1709374599]
-position = Vector2(250, 300)
-material = SubResource("StarsMaterial")
-scale = Vector2(7.42, 4.3)
-texture = ExtResource("4_glow")
-
-[node name="Rain" type="GPUParticles2D" parent="." unique_id=482430543]
+[node name="RainDrops" type="GPUParticles2D" parent="." unique_id=482430543]
+modulate = Color(1, 1, 1, 0.39215687)
 position = Vector2(250, -180)
-emitting = false
-amount = 60
-texture = ExtResource("4_glow")
+amount = 70
+amount_ratio = 0.8
+sub_emitter = NodePath("../Splash")
+texture = ExtResource("7_raindrop")
 lifetime = 1.5
+visibility_rect = Rect2(-900, -50, 1800, 2700)
 process_material = SubResource("RainMaterial")
+
+[node name="Splash" type="GPUParticles2D" parent="." unique_id=482430544]
+position = Vector2(250, 640)
+emitting = false
+amount = 200
+texture = ExtResource("4_glow")
+lifetime = 0.2
+visibility_rect = Rect2(-4000, -4000, 8000, 8000)
+process_material = SubResource("SplashMaterial")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1986611604]
 
@@ -297,9 +492,36 @@ modulate = Color(1, 1, 1, 0.3)
 scale = Vector2(1.3, 1.3)
 texture = ExtResource("3_circle")
 
+[node name="AimStick" type="Node2D" parent="CanvasLayer" unique_id=1552672962]
+position = Vector2(1070, 390)
+
+[node name="Base" type="Sprite2D" parent="CanvasLayer/AimStick" unique_id=1084982837]
+modulate = Color(1, 1, 1, 0.16)
+scale = Vector2(2, 2)
+texture = ExtResource("3_circle")
+
+[node name="Knob" type="Sprite2D" parent="CanvasLayer/AimStick" unique_id=529465806]
+modulate = Color(1, 1, 1, 0.42)
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("3_circle")
+
+[node name="WeaponSwitch" type="TouchScreenButton" parent="CanvasLayer"]
+position = Vector2(1200, 80)
+shape = SubResource("ButtonShape")
+
+[node name="BG" type="Sprite2D" parent="CanvasLayer/WeaponSwitch"]
+modulate = Color(1, 1, 1, 0.18)
+scale = Vector2(1.1, 1.1)
+texture = ExtResource("3_circle")
+
+[node name="Icon" type="Sprite2D" parent="CanvasLayer/WeaponSwitch"]
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("8_pistol")
+
 [connection signal="pressed" from="CanvasLayer/Left" to="." method="_on_left_down"]
 [connection signal="released" from="CanvasLayer/Left" to="." method="_on_left_up"]
 [connection signal="pressed" from="CanvasLayer/Right" to="." method="_on_right_down"]
 [connection signal="released" from="CanvasLayer/Right" to="." method="_on_right_up"]
 [connection signal="pressed" from="CanvasLayer/Jump" to="." method="_on_jump_down"]
 [connection signal="released" from="CanvasLayer/Jump" to="." method="_on_jump_up"]
+[connection signal="pressed" from="CanvasLayer/WeaponSwitch" to="." method="_on_weapon_switch"]

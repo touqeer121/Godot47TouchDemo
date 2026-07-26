@@ -1,0 +1,41 @@
+[gd_scene load_steps=7 format=3 uid="uid://bq8w3t7km2xn9"]
+
+[ext_resource type="Script" path="res://scripts/title.gd" id="1"]
+[ext_resource type="Shader" uid="uid://bytx1up6f3o8b" path="res://shaders/stars.gdshader" id="2"]
+[ext_resource type="Texture2D" uid="uid://bnm7qnxqrxd22" path="res://light_glow.svg" id="3"]
+[ext_resource type="Texture2D" uid="uid://cshelgyojmc4c" path="res://button.svg" id="4"]
+
+[sub_resource type="ShaderMaterial" id="StarsMat"]
+shader = ExtResource("2")
+
+[sub_resource type="CanvasItemMaterial" id="GlowAdd"]
+blend_mode = 1
+
+[node name="Title" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Stars" type="Sprite2D" parent="."]
+material = SubResource("StarsMat")
+position = Vector2(640, 360)
+scale = Vector2(6, 4)
+texture = ExtResource("3")
+
+[node name="MoonGlow" type="Sprite2D" parent="."]
+modulate = Color(1, 0.9, 0.6, 0.4)
+material = SubResource("GlowAdd")
+position = Vector2(1070, 130)
+scale = Vector2(7, 7)
+texture = ExtResource("3")
+
+[node name="Moon" type="Sprite2D" parent="."]
+modulate = Color(0.95, 0.93, 0.78, 1)
+position = Vector2(1070, 130)
+scale = Vector2(1.8, 1.8)
+texture = ExtResource("4")
+
+[node name="GlowCoral" type="Sprite2D" parent="."]
+modulate = Color(1, 0.3, 0.38, 0.28)
+material = SubResource("GlowAdd")
+position = Vector2(640, 300)
+scale = Vector2(11, 7)
+texture = ExtResource("3")

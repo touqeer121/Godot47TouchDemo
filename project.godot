@@ -10,9 +10,13 @@ config_version=5
 
 [application]
 
-config/name="Godot47TouchDemo"
-run/main_scene="res://scenes/main.tscn"
+config/name="Killer Godot"
+run/main_scene="res://scenes/loading.tscn"
 config/features=PackedStringArray("4.7")
+boot_splash/bg_color=Color(0.086, 0.086, 0.165, 1)
+boot_splash/image="res://splash.png"
+boot_splash/fullsize=true
+boot_splash/use_filter=true
 
 [display]
 
@@ -42,6 +46,10 @@ move_right={
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_interpolation=true
 
 [rendering]
 
