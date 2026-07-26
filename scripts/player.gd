@@ -86,12 +86,24 @@ var best_kills:=0
 var sfx:={}
 
 const SAVE_PATH := "user://save.cfg"
-const SPAWN_POINTS := [
-	Vector2(150, 470), Vector2(500, 470), Vector2(850, 470),
-	Vector2(1850, 460), Vector2(3300, 560), Vector2(3600, 560),
-	Vector2(4180, 500), Vector2(4620, 400), Vector2(5080, 490),
-	Vector2(5560, 370), Vector2(6100, 520),
+# Fixed enemy placements across the level, each with a behaviour.
+# "static" = turret (orange), "patrol" = walker (purple).
+var FIXED_SPAWNS := [
+	{"pos": Vector2(150, 470), "mode": "patrol"},
+	{"pos": Vector2(520, 470), "mode": "static"},
+	{"pos": Vector2(850, 470), "mode": "patrol"},
+	{"pos": Vector2(1140, 500), "mode": "static"},
+	{"pos": Vector2(1850, 460), "mode": "patrol"},
+	{"pos": Vector2(2260, 430), "mode": "static"},
+	{"pos": Vector2(3300, 560), "mode": "patrol"},
+	{"pos": Vector2(3600, 560), "mode": "static"},
+	{"pos": Vector2(4180, 500), "mode": "static"},
+	{"pos": Vector2(4620, 400), "mode": "patrol"},
+	{"pos": Vector2(5080, 490), "mode": "static"},
+	{"pos": Vector2(5560, 370), "mode": "patrol"},
+	{"pos": Vector2(6100, 520), "mode": "static"},
 ]
+var spawn_i := 0
 
 const MAX_HEALTH:=5
 const KNOCKBACK:=400.0
@@ -209,9 +221,10 @@ func _start_run():
 func _next_wave():
 	wave += 1
 	spawning = true
+	spawn_i = 0
 	if wave_label:
 		wave_label.text = "WAVE %d" % wave
-	var count: int = min(3 + wave, 10)
+	var count: int = min(3 + wave, FIXED_SPAWNS.size())
 	for i in count:
 		get_tree().create_timer(i * 0.3).timeout.connect(_spawn_one)
 	get_tree().create_timer(count * 0.28 + 0.15).timeout.connect(func():
@@ -221,28 +234,20 @@ func _next_wave():
 	)
 
 func _spawn_one():
-	# Mix of melee chasers, ranged gunners (from wave 2), and big tanks
-	# (from wave 3). Gunners are a minority and fire slowly so it stays fair.
-	var r := randf()
-	var scene := ENEMY
-	if wave >= 3 and r < 0.20:
+	# Spawn at fixed placements; static spots become orange turrets, patrol
+	# spots become purple walkers. A few become big green tanks in later waves.
+	var entry = FIXED_SPAWNS[spawn_i % FIXED_SPAWNS.size()]
+	spawn_i += 1
+	var scene := ENEMY_GUNNER if entry.mode == "static" else ENEMY
+	if wave >= 3 and randf() < 0.18:
 		scene = ENEMY_BIG
-	elif wave >= 2 and r < 0.48:
-		scene = ENEMY_GUNNER
 	var e: CharacterBody2D = scene.instantiate()
+	e.move_mode = entry.mode
+	e.can_shoot = true
 	e.max_health = e.max_health + int(wave / 2)
-	e.global_position = _pick_spawn()
+	e.global_position = entry.pos
 	add_child(e)
 	enemies_alive += 1
-
-# Spawn from the points nearest the player so enemies converge on the action
-# instead of scattering across the whole level.
-func _pick_spawn() -> Vector2:
-	var pts := SPAWN_POINTS.duplicate()
-	var px := player.global_position.x
-	pts.sort_custom(func(a, b): return absf(a.x - px) < absf(b.x - px))
-	var k: int = min(4, pts.size())
-	return pts[randi() % k]
 
 func _build_hud():
 	var layer := CanvasLayer.new()

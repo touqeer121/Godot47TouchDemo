@@ -8,7 +8,10 @@ extends CharacterBody2D
 @export var max_health := 3
 @export var speed := 90.0
 @export var contact_damage := 1
-@export var can_shoot := false
+@export var can_shoot := true
+# "static" = holds position and fires; "patrol" = walks back and forth;
+# "chase" = pursues the player. All modes can shoot.
+@export var move_mode := "patrol"
 
 var health := 3
 var dir := 1
@@ -21,8 +24,8 @@ var target: Node2D
 var shoot_timer := 1.0
 
 const GRAVITY := 2000.0
-const SHOOT_RANGE := 820.0
-const SHOOT_INTERVAL := 1.9
+const SHOOT_RANGE := 860.0
+const SHOOT_INTERVAL := 2.1
 const E_BULLET := preload("res://scenes/enemy_bullet.tscn")
 
 func _ready():
@@ -32,6 +35,7 @@ func _ready():
 	base_color = sprite.modulate
 	fc_offset = absf(floor_check.position.x)
 	target = get_tree().get_first_node_in_group("player")
+	shoot_timer = randf_range(0.7, SHOOT_INTERVAL)
 	touch_box.body_entered.connect(_on_touch)
 
 func _physics_process(delta):
@@ -43,19 +47,15 @@ func _physics_process(delta):
 	if hurt_timer > 0.0:
 		hurt_timer -= delta
 		velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
-	else:
-		# Chase the player, but stop at ledges/walls instead of falling off.
-		var want := dir
+	elif move_mode == "static":
+		velocity.x = 0.0
+		# Face the player so shots look aimed.
 		if is_instance_valid(target):
-			want = 1 if target.global_position.x > global_position.x else -1
-		floor_check.position.x = fc_offset * want
-		floor_check.force_raycast_update()
-		var ledge := is_on_floor() and not floor_check.is_colliding()
-		if ledge:
-			velocity.x = 0.0
-		else:
-			dir = want
-			velocity.x = dir * speed
+			dir = 1 if target.global_position.x > global_position.x else -1
+	elif move_mode == "chase":
+		_move_toward_player()
+	else:
+		_patrol()
 
 	move_and_slide()
 
@@ -66,6 +66,25 @@ func _physics_process(delta):
 		if shoot_timer <= 0.0 and global_position.distance_to(target.global_position) < SHOOT_RANGE:
 			shoot_timer = SHOOT_INTERVAL
 			_shoot_at(target.global_position)
+
+func _patrol():
+	floor_check.position.x = fc_offset * dir
+	floor_check.force_raycast_update()
+	if is_on_wall() or (is_on_floor() and not floor_check.is_colliding()):
+		dir = -dir
+	velocity.x = dir * speed
+
+func _move_toward_player():
+	var want := dir
+	if is_instance_valid(target):
+		want = 1 if target.global_position.x > global_position.x else -1
+	floor_check.position.x = fc_offset * want
+	floor_check.force_raycast_update()
+	if is_on_floor() and not floor_check.is_colliding():
+		velocity.x = 0.0
+	else:
+		dir = want
+		velocity.x = dir * speed
 
 func _shoot_at(pos: Vector2):
 	var to := (pos - global_position).normalized()
