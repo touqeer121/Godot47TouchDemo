@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 @onready var sprite: Sprite2D = $Sprite2D
+@onready var gun: Sprite2D = $Gun
 @onready var floor_check: RayCast2D = $FloorCheck
 @onready var body_shape: CollisionShape2D = $CollisionShape2D
 @onready var touch_box: Area2D = $TouchBox
@@ -22,6 +23,7 @@ var base_color: Color
 var fc_offset := 40.0
 var target: Node2D
 var shoot_timer := 1.0
+var muzzle_len := 44.0
 
 const GRAVITY := 2000.0
 const SHOOT_RANGE := 860.0
@@ -36,6 +38,7 @@ func _ready():
 	fc_offset = absf(floor_check.position.x)
 	target = get_tree().get_first_node_in_group("player")
 	shoot_timer = randf_range(0.7, SHOOT_INTERVAL)
+	muzzle_len = gun.texture.get_width() * absf(gun.scale.x) * 0.5 + 6.0
 	touch_box.body_entered.connect(_on_touch)
 
 func _physics_process(delta):
@@ -60,6 +63,12 @@ func _physics_process(delta):
 	move_and_slide()
 
 	sprite.scale.x = base_scale.x * (1.0 if dir > 0 else -1.0)
+
+	# Aim the gun at the player (kept upright with flip_v when facing left).
+	if is_instance_valid(target):
+		var ad := (target.global_position - gun.global_position).normalized()
+		gun.rotation = ad.angle()
+		gun.flip_v = ad.x < 0.0
 
 	if can_shoot and is_instance_valid(target):
 		shoot_timer -= delta
@@ -87,10 +96,10 @@ func _move_toward_player():
 		velocity.x = dir * speed
 
 func _shoot_at(pos: Vector2):
-	var to := (pos - global_position).normalized()
+	var to := (pos - gun.global_position).normalized()
 	var b := E_BULLET.instantiate()
 	b.velocity = to * 640.0
-	b.global_position = global_position + to * 55.0
+	b.global_position = gun.global_position + to * muzzle_len
 	get_parent().add_child(b)
 
 func take_damage(amount: int, from_pos: Vector2 = Vector2.ZERO):
