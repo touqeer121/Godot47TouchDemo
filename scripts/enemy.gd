@@ -28,6 +28,7 @@ var muzzle_len := 44.0
 const GRAVITY := 2000.0
 const SHOOT_RANGE := 860.0
 const SHOOT_INTERVAL := 2.1
+const STANDOFF_DIST := 470.0
 const E_BULLET := preload("res://scenes/enemy_bullet.tscn")
 
 func _ready():
@@ -55,6 +56,8 @@ func _physics_process(delta):
 		# Face the player so shots look aimed.
 		if is_instance_valid(target):
 			dir = 1 if target.global_position.x > global_position.x else -1
+	elif move_mode == "standoff":
+		_standoff()
 	elif move_mode == "chase":
 		_move_toward_player()
 	else:
@@ -94,6 +97,27 @@ func _move_toward_player():
 	else:
 		dir = want
 		velocity.x = dir * speed
+
+# Approach until at shooting distance, then hold and fire (backing off if the
+# player gets too close). Never rushes in to melee, never walks off a ledge.
+func _standoff():
+	velocity.x = 0.0
+	if not is_instance_valid(target):
+		return
+	var dx := target.global_position.x - global_position.x
+	var face := 1 if dx > 0.0 else -1
+	dir = face
+	var adx := absf(dx)
+	var mv := 0
+	if adx > STANDOFF_DIST + 50.0:
+		mv = face
+	elif adx < STANDOFF_DIST - 50.0:
+		mv = -face
+	if mv != 0:
+		floor_check.position.x = fc_offset * mv
+		floor_check.force_raycast_update()
+		if not (is_on_floor() and not floor_check.is_colliding()):
+			velocity.x = mv * speed
 
 func _shoot_at(pos: Vector2):
 	var to := (pos - gun.global_position).normalized()

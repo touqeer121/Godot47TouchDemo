@@ -87,20 +87,21 @@ var sfx:={}
 
 const SAVE_PATH := "user://save.cfg"
 # Fixed enemy placements across the level, each with a behaviour.
-# "static" = turret (orange), "patrol" = walker (purple).
+# "static" = turret (orange); "standoff" = ranged walker (purple) that
+# approaches to shooting distance then holds, never rushing to melee.
 var FIXED_SPAWNS := [
-	{"pos": Vector2(150, 470), "mode": "patrol"},
+	{"pos": Vector2(150, 470), "mode": "standoff"},
 	{"pos": Vector2(520, 470), "mode": "static"},
-	{"pos": Vector2(850, 470), "mode": "patrol"},
+	{"pos": Vector2(850, 470), "mode": "standoff"},
 	{"pos": Vector2(1140, 500), "mode": "static"},
-	{"pos": Vector2(1850, 460), "mode": "patrol"},
+	{"pos": Vector2(1850, 460), "mode": "standoff"},
 	{"pos": Vector2(2260, 430), "mode": "static"},
-	{"pos": Vector2(3300, 560), "mode": "patrol"},
+	{"pos": Vector2(3300, 560), "mode": "standoff"},
 	{"pos": Vector2(3600, 560), "mode": "static"},
 	{"pos": Vector2(4180, 500), "mode": "static"},
-	{"pos": Vector2(4620, 400), "mode": "patrol"},
+	{"pos": Vector2(4620, 400), "mode": "standoff"},
 	{"pos": Vector2(5080, 490), "mode": "static"},
-	{"pos": Vector2(5560, 370), "mode": "patrol"},
+	{"pos": Vector2(5560, 370), "mode": "standoff"},
 	{"pos": Vector2(6100, 520), "mode": "static"},
 ]
 var spawn_i := 0
