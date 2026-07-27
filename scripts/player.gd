@@ -33,6 +33,19 @@ const GLOW := preload("res://light_glow.svg")
 const BLOCK_SIZE := 46.0
 const MELEE_REACH := 165.0
 const MELEE_COOLDOWN := 0.32
+const TERRAIN_CHUNK := preload("res://scripts/terrain_chunk.gd")
+
+# Floating platforms as world rects [x_left, y_top, width, height]; each is
+# split into destructible chunks so the level can be blown apart.
+const PLATFORM_RECTS := [
+	[971.5, 560.0, 337.0, 62.4], [1339.5, 452.0, 337.0, 62.4],
+	[1675.5, 576.0, 337.0, 62.4], [1979.5, 356.0, 337.0, 62.4],
+	[2323.5, 460.0, 337.0, 62.4], [2659.5, 576.0, 337.0, 62.4],
+	[3005.5, 696.0, 880.0, 62.4], [4020.0, 600.0, 320.0, 62.0],
+	[4480.0, 500.0, 280.0, 62.0], [4900.0, 590.0, 360.0, 62.0],
+	[5400.0, 470.0, 320.0, 62.0], [4300.0, 380.0, 300.0, 62.0],
+	[5850.0, 620.0, 550.0, 62.0],
+]
 
 const TEX_PISTOL := preload("res://assets/weapons/pistol.png")
 const TEX_SMG := preload("res://assets/weapons/pistol3.png")
@@ -170,8 +183,53 @@ func _ready():
 	_load_best()
 	_build_hud()
 	_build_audio()
+	_build_platforms()
 	_build_terrain()
 	_start_run()
+
+# Generate the floating platforms as rows of destructible chunks.
+func _build_platforms():
+	var color := Color(0.98, 0.75, 0.35)
+	for r in PLATFORM_RECTS:
+		var x0: float = r[0]
+		var y0: float = r[1]
+		var w: float = r[2]
+		var h: float = r[3]
+		var cols: int = maxi(1, int(round(w / 110.0)))
+		var cw: float = w / float(cols)
+		for c in cols:
+			var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + h * 0.5)
+			_make_chunk(center, cw, h, color)
+
+func _make_chunk(center: Vector2, w: float, h: float, color: Color):
+	var body := StaticBody2D.new()
+	body.set_script(TERRAIN_CHUNK)
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = center
+	body.z_index = -1
+	add_child(body)
+
+	var hw := w * 0.5
+	var hh := h * 0.5
+	var quad := PackedVector2Array([Vector2(-hw, -hh), Vector2(hw, -hh), Vector2(hw, hh), Vector2(-hw, hh)])
+
+	var poly := Polygon2D.new()
+	poly.color = color
+	poly.polygon = quad
+	body.add_child(poly)
+
+	var cs := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(w, h)
+	cs.shape = shape
+	body.add_child(cs)
+
+	var occ := LightOccluder2D.new()
+	var op := OccluderPolygon2D.new()
+	op.polygon = quad
+	occ.occluder = op
+	body.add_child(occ)
 
 	bg_y = camera.global_position.y
 
