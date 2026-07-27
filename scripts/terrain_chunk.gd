@@ -4,6 +4,8 @@ extends StaticBody2D
 # melee gouges it. Set by the builder before it enters the tree.
 var health := 4
 var debris_color := Color(0.98, 0.75, 0.35)
+var cell_w := 44.0
+var cell_h := 44.0
 
 func _ready():
 	add_to_group("destructible")

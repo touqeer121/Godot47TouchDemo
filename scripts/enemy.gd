@@ -127,6 +127,7 @@ func take_damage(amount: int, from_pos: Vector2 = Vector2.ZERO):
 	health -= amount
 	_flash()
 	get_tree().call_group("player_controller", "play_sfx", "hit")
+	get_tree().call_group("player_controller", "spawn_hit_number", global_position, amount)
 	var kb := signf(global_position.x - from_pos.x)
 	if kb == 0.0:
 		kb = -float(dir)
@@ -148,6 +149,7 @@ func _die():
 	get_tree().call_group("player_controller", "add_kill")
 	get_tree().call_group("player_controller", "play_sfx", "kill")
 	get_tree().call_group("player_controller", "spawn_debris", global_position, base_color, 8)
+	get_tree().call_group("player_controller", "maybe_drop", global_position)
 	# Fling the corpse rather than a tidy squash.
 	var t := create_tween()
 	t.tween_property(sprite, "position", sprite.position + Vector2(randf_range(-40, 40), -70), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

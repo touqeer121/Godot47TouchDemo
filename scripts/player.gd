@@ -33,6 +33,10 @@ const RING := preload("res://ring.svg")
 const FX_DEBRIS := preload("res://scenes/fx_debris.tscn")
 const FX_DUST := preload("res://scenes/fx_dust.tscn")
 const FX_SPARKS := preload("res://scenes/fx_sparks.tscn")
+const PICKUP := preload("res://scenes/pickup.tscn")
+
+const COMBO_WINDOW := 3.0
+const GOAL_X := 6250.0
 
 const BLOCK_SIZE := 46.0
 const MELEE_REACH := 165.0
@@ -109,8 +113,15 @@ var enemies_alive:=0
 var spawning:=false
 var best_wave:=0
 var best_kills:=0
+var best_score:=0
 var sfx:={}
 var melee_timer:=0.0
+var score:=0
+var combo:=0
+var combo_timer:=0.0
+var won:=false
+var combo_label:Label
+var win_label:Label
 
 const SAVE_PATH := "user://save.cfg"
 # Fixed enemy placements across the level, each with a behaviour.
@@ -185,11 +196,76 @@ func _ready():
 
 	start_pos = player.global_position
 	_load_best()
+	_build_parallax()
 	_build_hud()
 	_build_audio()
 	_build_platforms()
 	_build_terrain()
+	_build_goal()
 	_start_run()
+
+# Distant hill silhouettes on parallax layers for depth.
+func _build_parallax():
+	var pb := ParallaxBackground.new()
+	add_child(pb)
+	_hill_layer(pb, 0.2, Color(0.12, 0.11, 0.22), 470.0, 150.0)
+	_hill_layer(pb, 0.42, Color(0.16, 0.14, 0.28), 560.0, 110.0)
+
+func _hill_layer(pb: ParallaxBackground, motion: float, color: Color, base_y: float, amp: float):
+	var layer := ParallaxLayer.new()
+	layer.motion_scale = Vector2(motion, motion)
+	layer.motion_mirroring = Vector2(2400, 0)
+	pb.add_child(layer)
+	var poly := Polygon2D.new()
+	poly.color = color
+	var pts := PackedVector2Array()
+	pts.append(Vector2(0, 900))
+	var x := 0.0
+	var i := 0
+	while x <= 2400.0:
+		var y := base_y + sin(x * 0.006 + float(i)) * amp
+		pts.append(Vector2(x, y))
+		x += 120.0
+		i += 1
+	pts.append(Vector2(2400, 900))
+	poly.polygon = pts
+	layer.add_child(poly)
+
+# Extraction beacon at the far right; touch it to win the run.
+func _build_goal():
+	var pole := Polygon2D.new()
+	pole.color = Color(0.34, 0.85, 0.8)
+	pole.polygon = PackedVector2Array([Vector2(-8, 0), Vector2(8, 0), Vector2(8, -220), Vector2(-8, -220)])
+	pole.position = Vector2(GOAL_X, 560)
+	add_child(pole)
+
+	var beam := Sprite2D.new()
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	beam.material = mat
+	beam.texture = GLOW
+	beam.modulate = Color(0.4, 1.0, 0.9, 0.5)
+	beam.scale = Vector2(2.6, 6.0)
+	beam.position = Vector2(GOAL_X, 400)
+	add_child(beam)
+	var bt := beam.create_tween().set_loops()
+	bt.tween_property(beam, "modulate:a", 0.2, 0.8).set_trans(Tween.TRANS_SINE)
+	bt.tween_property(beam, "modulate:a", 0.55, 0.8).set_trans(Tween.TRANS_SINE)
+
+	var area := Area2D.new()
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.position = Vector2(GOAL_X, 480)
+	var cs := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(120, 300)
+	cs.shape = shape
+	area.add_child(cs)
+	add_child(area)
+	area.body_entered.connect(func(body):
+		if body.is_in_group("player"):
+			_win()
+	)
 
 # Generate the floating platforms as rows of destructible chunks.
 func _build_platforms():
@@ -215,6 +291,9 @@ func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	body.collision_mask = 0
 	body.position = center
 	body.z_index = -1
+	body.cell_w = w
+	body.cell_h = h
+	body.debris_color = color
 	add_child(body)
 
 	var hw := w * 0.5
@@ -265,12 +344,16 @@ func explode(pos: Vector2, radius: float, damage: int):
 			e.take_damage(damage, pos)
 	var carved := false
 	for d in get_tree().get_nodes_in_group("destructible"):
-		if not is_instance_valid(d) or d.global_position.distance_to(pos) >= radius:
+		if not is_instance_valid(d):
 			continue
+		var dist: float = d.global_position.distance_to(pos)
 		if d.is_in_group("terrain"):
-			d.queue_free()   # cleared silently; central debris burst covers it
-			carved = true
-		else:
+			if dist < radius:
+				d.queue_free()   # cleared; central debris burst covers it
+				carved = true
+			elif dist < radius * 1.5 and randf() < 0.5:
+				_collapse_chunk(d)   # crater edges crumble and fall
+		elif dist < radius:
 			d.take_damage(999, pos)   # barrels chain, crates shatter
 	# A few chunky terrain-debris bursts across the crater (not one per cell).
 	if carved:
@@ -279,6 +362,24 @@ func explode(pos: Vector2, radius: float, damage: int):
 			_burst(FX_DEBRIS, pos + off, Color(0.98, 0.75, 0.35))
 	if player.global_position.distance_to(pos) < radius * 0.72:
 		damage_player(1, pos)
+
+func _collapse_chunk(chunk):
+	var hw: float = chunk.cell_w * 0.5
+	var hh: float = chunk.cell_h * 0.5
+	var quad := PackedVector2Array([Vector2(-hw, -hh), Vector2(hw, -hh), Vector2(hw, hh), Vector2(-hw, hh)])
+	var p := Polygon2D.new()
+	p.color = chunk.debris_color
+	p.polygon = quad
+	p.global_position = chunk.global_position
+	p.z_index = -1
+	add_child(p)
+	chunk.queue_free()
+	var end := p.global_position + Vector2(randf_range(-30, 30), 460)
+	var tw := p.create_tween()
+	tw.tween_property(p, "global_position", end, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(p, "rotation", randf_range(-4, 4), 1.1)
+	tw.parallel().tween_property(p, "modulate:a", 0.0, 1.1)
+	tw.tween_callback(p.queue_free)
 
 func _add_glow(pos: Vector2, color: Color, from: float, to: float, dur: float):
 	var mat := CanvasItemMaterial.new()
@@ -328,6 +429,64 @@ func spawn_debris(pos: Vector2, color: Color, _count: int):
 	_burst(FX_DEBRIS, pos, color)
 	_burst(FX_DUST, pos)
 
+func spawn_hit_number(pos: Vector2, amount: int):
+	var l := Label.new()
+	l.text = str(amount)
+	l.z_index = 50
+	l.global_position = pos + Vector2(randf_range(-14, 14), -40)
+	var big := amount >= 3
+	l.add_theme_font_size_override("font_size", 34 if big else 24)
+	l.add_theme_color_override("font_color", Color(1, 0.85, 0.4) if big else Color(1, 1, 1))
+	l.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.1))
+	l.add_theme_constant_override("outline_size", 5)
+	add_child(l)
+	var tw := l.create_tween()
+	tw.tween_property(l, "global_position:y", l.global_position.y - 48.0, 0.5).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(l.queue_free)
+
+func collect_pickup(kind: String, pos: Vector2):
+	if kind == "health":
+		health = mini(MAX_HEALTH, health + 2)
+		_update_health_hud()
+		play_sfx("switch")
+		_add_glow(pos, Color(0.4, 1.0, 0.5, 0.9), 0.3, 1.6, 0.3)
+	else:
+		# Screen-clear bomb: blast every nearby enemy.
+		add_shake(16.0)
+		play_sfx("explode")
+		_add_glow(player.global_position, Color(1, 0.9, 0.7, 1.0), 0.5, 7.0, 0.4)
+		_shockwave(player.global_position, 9.0)
+		for e in get_tree().get_nodes_in_group("enemies"):
+			if is_instance_valid(e) and e.global_position.distance_to(player.global_position) < 1100.0:
+				e.take_damage(99, player.global_position)
+
+func maybe_drop(pos: Vector2):
+	var r := randf()
+	if r < 0.12:
+		_spawn_pickup("health", pos)
+	elif r < 0.17:
+		_spawn_pickup("bomb", pos)
+
+func _spawn_pickup(kind: String, pos: Vector2):
+	var p := PICKUP.instantiate()
+	p.kind = kind
+	p.global_position = pos
+	add_child(p)
+
+func _win():
+	if won:
+		return
+	won = true
+	spawning = true   # stop wave scheduling
+	for e in get_tree().get_nodes_in_group("enemies"):
+		e.queue_free()
+	if win_label:
+		win_label.text = "EXTRACTED!\nSCORE %d   •   TAP TO PLAY AGAIN" % score
+		win_label.visible = true
+	add_shake(6.0)
+	_check_best()
+
 func _build_audio():
 	for nm in ["pistol", "smg", "shotgun", "throw", "hit", "kill", "explode", "jump", "hurt", "switch"]:
 		var p := AudioStreamPlayer.new()
@@ -354,11 +513,13 @@ func _load_best():
 	if cfg.load(SAVE_PATH) == OK:
 		best_wave = cfg.get_value("score", "best_wave", 0)
 		best_kills = cfg.get_value("score", "best_kills", 0)
+		best_score = cfg.get_value("score", "best_score", 0)
 
 func _save_best():
 	var cfg := ConfigFile.new()
 	cfg.set_value("score", "best_wave", best_wave)
 	cfg.set_value("score", "best_kills", best_kills)
+	cfg.set_value("score", "best_score", best_score)
 	cfg.save(SAVE_PATH)
 
 func _check_best():
@@ -369,10 +530,13 @@ func _check_best():
 	if kills > best_kills:
 		best_kills = kills
 		changed = true
+	if score > best_score:
+		best_score = score
+		changed = true
 	if changed:
 		_save_best()
 		if best_label:
-			best_label.text = "BEST  W%d  K%d" % [best_wave, best_kills]
+			best_label.text = "BEST  W%d  •  %d" % [best_wave, best_score]
 
 func _start_run():
 	for e in get_tree().get_nodes_in_group("enemies"):
@@ -380,8 +544,16 @@ func _start_run():
 	enemies_alive = 0
 	wave = 0
 	kills = 0
+	score = 0
+	combo = 0
+	combo_timer = 0.0
+	won = false
 	if kill_label:
 		kill_label.text = "0"
+	if combo_label:
+		combo_label.visible = false
+	if win_label:
+		win_label.visible = false
 	_next_wave()
 
 func _next_wave():
@@ -464,12 +636,30 @@ func _build_hud():
 	layer.add_child(wave_label)
 
 	best_label = Label.new()
-	best_label.text = "BEST  W%d  K%d" % [best_wave, best_kills]
+	best_label.text = "BEST  W%d  •  %d" % [best_wave, best_score]
 	best_label.size = Vector2(vp.x, 30)
 	best_label.position = Vector2(0, 74)
 	best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_style_label(best_label, 22, Color(0.82, 0.84, 0.95))
 	layer.add_child(best_label)
+
+	combo_label = Label.new()
+	combo_label.text = ""
+	combo_label.visible = false
+	combo_label.size = Vector2(300, 40)
+	combo_label.position = Vector2(30, 168)
+	combo_label.pivot_offset = Vector2(0, 20)
+	_style_label(combo_label, 30, COL_GOLD)
+	layer.add_child(combo_label)
+
+	win_label = Label.new()
+	win_label.visible = false
+	win_label.size = Vector2(vp.x, 200)
+	win_label.position = Vector2(0, vp.y * 0.32)
+	win_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	win_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_style_label(win_label, 62, COL_MINT)
+	layer.add_child(win_label)
 
 	_update_health_hud()
 
@@ -517,12 +707,28 @@ func damage_player(amount: int, from_pos: Vector2):
 func add_kill():
 	kills += 1
 	enemies_alive -= 1
+	combo += 1
+	combo_timer = COMBO_WINDOW
+	score += 10 * maxi(1, combo)
 	if kill_label:
 		kill_label.text = str(kills)
+	_update_combo_hud()
 	add_shake(3.0)
 	_check_best()
-	if enemies_alive <= 0 and not spawning:
+	if enemies_alive <= 0 and not spawning and not won:
 		get_tree().create_timer(2.0).timeout.connect(_next_wave)
+
+func _update_combo_hud():
+	if not combo_label:
+		return
+	if combo >= 2:
+		combo_label.text = "COMBO  x%d" % combo
+		combo_label.visible = true
+		combo_label.scale = Vector2(1.3, 1.3)
+		var t := create_tween()
+		t.tween_property(combo_label, "scale", Vector2(1, 1), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		combo_label.visible = false
 
 func _respawn():
 	health = MAX_HEALTH
@@ -533,6 +739,17 @@ func _respawn():
 	_start_run()
 
 func _input(event):
+	if won:
+		var go: bool = (event is InputEventScreenTouch and event.pressed) \
+			or (event is InputEventMouseButton and event.pressed) \
+			or (event is InputEventKey and event.pressed and not event.echo)
+		if go:
+			health = MAX_HEALTH
+			_update_health_hud()
+			player.velocity = Vector2.ZERO
+			player.global_position = start_pos
+			_start_run()
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			if aim_touch_index == -1 and event.position.distance_to(aim_stick.position) <= AIM_RADIUS * 1.3:
@@ -714,6 +931,13 @@ func _physics_process(delta):
 
 	if melee_timer > 0.0:
 		melee_timer -= delta
+
+	if combo_timer > 0.0:
+		combo_timer -= delta
+		if combo_timer <= 0.0 and combo > 0:
+			combo = 0
+			if combo_label:
+				combo_label.visible = false
 
 	if shake > 0.15:
 		shake = lerpf(shake, 0.0, 14.0 * delta)
