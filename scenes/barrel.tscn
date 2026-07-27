@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dg2gu5oqlpld2" path="res://barrel.svg" id="2"]
 
 [sub_resource type="RectangleShape2D" id="BarrelShape"]
-size = Vector2(46, 74)
+size = Vector2(80, 126)
 
 [node name="Barrel" type="StaticBody2D"]
 collision_layer = 1
@@ -12,7 +12,7 @@ collision_mask = 0
 script = ExtResource("1")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-scale = Vector2(0.74, 0.74)
+scale = Vector2(1.26, 1.26)
 texture = ExtResource("2")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

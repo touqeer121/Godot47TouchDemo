@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://c6wk2mn8qxrv7"]
+
+[ext_resource type="Script" path="res://scripts/enemy.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dhhs50hq4ceka" path="res://icon.svg" id="2"]
+
+[sub_resource type="RectangleShape2D" id="BodyShape"]
+size = Vector2(126, 158)
+
+[sub_resource type="RectangleShape2D" id="TouchShape"]
+size = Vector2(138, 170)
+
+[node name="EnemyAlarm" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1")
+max_health = 11
+speed = 0.0
+contact_damage = 1
+can_shoot = false
+move_mode = "static"
+is_alarm = true
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.62, 0.64, 0.7, 1)
+scale = Vector2(1.2, 1.2)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("BodyShape")
+
+[node name="TouchBox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TouchBox"]
+shape = SubResource("TouchShape")
+
+[node name="FloorCheck" type="RayCast2D" parent="."]
+position = Vector2(62, 0)
+target_position = Vector2(0, 100)

@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
 @onready var sprite: Sprite2D = $Sprite2D
-@onready var gun: Sprite2D = $Gun
+@onready var gun: Sprite2D = get_node_or_null("Gun")
 @onready var floor_check: RayCast2D = $FloorCheck
 @onready var body_shape: CollisionShape2D = $CollisionShape2D
 @onready var touch_box: Area2D = $TouchBox
@@ -11,8 +11,14 @@ extends CharacterBody2D
 @export var contact_damage := 1
 @export var can_shoot := true
 # "static" = holds position and fires; "patrol" = walks back and forth;
-# "chase" = pursues the player. All modes can shoot.
+# "chase" = pursues the player; "standoff" = advance to range then hold.
 @export var move_mode := "patrol"
+@export var shoot_kind := "bullet"   # or "grenade"
+@export var is_alarm := false         # calls in reinforcements when it sees you
+
+var alarm_timer := 3.0
+const ALARM_INTERVAL := 6.0
+const E_GRENADE := preload("res://scenes/enemy_grenade.tscn")
 
 var health := 3
 var dir := 1
@@ -39,7 +45,8 @@ func _ready():
 	fc_offset = absf(floor_check.position.x)
 	target = get_tree().get_first_node_in_group("player")
 	shoot_timer = randf_range(0.7, SHOOT_INTERVAL)
-	muzzle_len = gun.texture.get_width() * absf(gun.scale.x) * 0.5 + 6.0
+	if gun:
+		muzzle_len = gun.texture.get_width() * absf(gun.scale.x) * 0.5 + 6.0
 	touch_box.body_entered.connect(_on_touch)
 
 func _physics_process(delta):
@@ -68,7 +75,7 @@ func _physics_process(delta):
 	sprite.scale.x = base_scale.x * (1.0 if dir > 0 else -1.0)
 
 	# Aim the gun at the player (kept upright with flip_v when facing left).
-	if is_instance_valid(target):
+	if gun and is_instance_valid(target):
 		var ad := (target.global_position - gun.global_position).normalized()
 		gun.rotation = ad.angle()
 		gun.flip_v = ad.x < 0.0
@@ -78,6 +85,13 @@ func _physics_process(delta):
 		if shoot_timer <= 0.0 and global_position.distance_to(target.global_position) < SHOOT_RANGE:
 			shoot_timer = SHOOT_INTERVAL
 			_shoot_at(target.global_position)
+
+	if is_alarm and is_instance_valid(target):
+		if global_position.distance_to(target.global_position) < SHOOT_RANGE:
+			alarm_timer -= delta
+			if alarm_timer <= 0.0:
+				alarm_timer = ALARM_INTERVAL
+				get_tree().call_group("player_controller", "spawn_reinforcement", global_position)
 
 func _patrol():
 	floor_check.position.x = fc_offset * dir
@@ -115,10 +129,18 @@ func _standoff():
 			velocity.x = face * speed
 
 func _shoot_at(pos: Vector2):
-	var to := (pos - gun.global_position).normalized()
+	var origin: Vector2 = gun.global_position if gun else global_position
+	if shoot_kind == "grenade":
+		var g := E_GRENADE.instantiate()
+		var to := pos - origin
+		g.velocity = Vector2(to.x * 1.1, -420.0)   # lob toward the player
+		g.global_position = origin
+		get_parent().add_child(g)
+		return
+	var to := (pos - origin).normalized()
 	var b := E_BULLET.instantiate()
 	b.velocity = to * 640.0
-	b.global_position = gun.global_position + to * muzzle_len
+	b.global_position = origin + to * muzzle_len
 	get_parent().add_child(b)
 
 func take_damage(amount: int, from_pos: Vector2 = Vector2.ZERO):
@@ -145,7 +167,8 @@ func _die():
 	dead = true
 	body_shape.set_deferred("disabled", true)
 	touch_box.set_deferred("monitoring", false)
-	gun.visible = false
+	if gun:
+		gun.visible = false
 	get_tree().call_group("player_controller", "add_kill")
 	get_tree().call_group("player_controller", "play_sfx", "kill")
 	get_tree().call_group("player_controller", "spawn_debris", global_position, base_color, 8)

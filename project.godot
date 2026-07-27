@@ -56,4 +56,4 @@ common/physics_interpolation=true
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.086, 0.086, 0.165, 1)
+environment/defaults/default_clear_color=Color(0.52, 0.77, 0.92, 1)

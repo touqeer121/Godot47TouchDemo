@@ -26,6 +26,10 @@ const GRENADE := preload("res://scenes/grenade.tscn")
 const ENEMY := preload("res://scenes/enemy.tscn")
 const ENEMY_BIG := preload("res://scenes/enemy_big.tscn")
 const ENEMY_GUNNER := preload("res://scenes/enemy_gunner.tscn")
+const ENEMY_RUSHER := preload("res://scenes/enemy_rusher.tscn")
+const ENEMY_HEAVY := preload("res://scenes/enemy_heavy.tscn")
+const ENEMY_GRENADIER := preload("res://scenes/enemy_grenadier.tscn")
+const ENEMY_ALARM := preload("res://scenes/enemy_alarm.tscn")
 const BARREL := preload("res://scenes/barrel.tscn")
 const BLOCK := preload("res://scenes/block.tscn")
 const GLOW := preload("res://light_glow.svg")
@@ -36,23 +40,58 @@ const FX_SPARKS := preload("res://scenes/fx_sparks.tscn")
 const PICKUP := preload("res://scenes/pickup.tscn")
 
 const COMBO_WINDOW := 3.0
-const GOAL_X := 6250.0
+const GOAL_X := 8700.0
 
-const BLOCK_SIZE := 46.0
-const MELEE_REACH := 165.0
+const BLOCK_SIZE := 90.0
+const CHUNK_CELL := 56.0
+const MELEE_REACH := 175.0
 const MELEE_COOLDOWN := 0.32
 const TERRAIN_CHUNK := preload("res://scripts/terrain_chunk.gd")
 
-# Floating platforms as world rects [x_left, y_top, width, height]; each is
-# split into destructible chunks so the level can be blown apart.
-const PLATFORM_RECTS := [
-	[971.5, 560.0, 337.0, 62.4], [1339.5, 452.0, 337.0, 62.4],
-	[1675.5, 576.0, 337.0, 62.4], [1979.5, 356.0, 337.0, 62.4],
-	[2323.5, 460.0, 337.0, 62.4], [2659.5, 576.0, 337.0, 62.4],
-	[3005.5, 696.0, 880.0, 62.4], [4020.0, 600.0, 320.0, 62.0],
-	[4480.0, 500.0, 280.0, 62.0], [4900.0, 590.0, 360.0, 62.0],
-	[5400.0, 470.0, 320.0, 62.0], [4300.0, 380.0, 300.0, 62.0],
-	[5850.0, 620.0, 550.0, 62.0],
+const JUNGLE_DIRT := Color(0.40, 0.30, 0.19)
+const JUNGLE_GRASS := Color(0.33, 0.5, 0.24)
+const JUNGLE_SKY_FAR := Color(0.28, 0.42, 0.30)
+const JUNGLE_SKY_MID := Color(0.22, 0.36, 0.24)
+
+# Solid ground segments [x, y_top, w, h]; the gaps between them are pits.
+const LEVEL_GROUND := [
+	[-260.0, 700.0, 1710.0, 280.0],
+	[1720.0, 700.0, 1650.0, 280.0],
+	[3650.0, 700.0, 1750.0, 280.0],
+	[5700.0, 700.0, 1500.0, 280.0],
+	[7500.0, 700.0, 2000.0, 280.0],
+]
+
+# Destructible grass ledges [x, y_top, w, h].
+const LEVEL_PLATFORMS := [
+	[780.0, 500.0, 360.0, 58.0],
+	[1950.0, 540.0, 380.0, 58.0],
+	[2650.0, 430.0, 360.0, 58.0],
+	[3900.0, 520.0, 380.0, 58.0],
+	[4550.0, 410.0, 380.0, 58.0],
+	[6050.0, 520.0, 380.0, 58.0],
+	[6750.0, 410.0, 340.0, 58.0],
+	[7750.0, 500.0, 420.0, 58.0],
+]
+
+const LEVEL_BARRELS := [
+	Vector2(720, 637), Vector2(2050, 637), Vector2(2120, 637),
+	Vector2(4380, 637), Vector2(6080, 637), Vector2(6360, 637), Vector2(8380, 637),
+]
+
+# Crate cover walls [x_bottom_left, y_bottom, cols, rows].
+const LEVEL_WALLS := [
+	[1180.0, 655.0, 2, 3], [3060.0, 655.0, 3, 2],
+	[4920.0, 655.0, 2, 3], [6960.0, 655.0, 3, 2],
+]
+
+# Enemy placements [x, y, type]. type: walk rush heavy gren turret alarm big.
+const LEVEL_ENEMIES := [
+	[600, 560, "walk"], [1050, 560, "walk"], [1350, 560, "rush"], [950, 430, "gren"],
+	[2000, 540, "heavy"], [2350, 560, "walk"], [3050, 560, "turret"], [2150, 470, "turret"], [2750, 360, "rush"],
+	[3850, 540, "alarm"], [4300, 560, "gren"], [4750, 560, "walk"], [5150, 560, "rush"], [4050, 450, "turret"], [4650, 320, "heavy"],
+	[6000, 540, "heavy"], [6350, 560, "gren"], [6850, 540, "alarm"], [6150, 560, "rush"], [6150, 450, "turret"], [6850, 330, "turret"],
+	[7650, 560, "walk"], [8050, 560, "rush"], [8350, 540, "heavy"],
 ]
 
 const TEX_PISTOL := preload("res://assets/weapons/pistol.png")
@@ -124,25 +163,7 @@ var combo_label:Label
 var win_label:Label
 
 const SAVE_PATH := "user://save.cfg"
-# Fixed enemy placements across the level, each with a behaviour.
-# "static" = turret (orange); "standoff" = ranged walker (purple) that
-# approaches to shooting distance then holds, never rushing to melee.
-var FIXED_SPAWNS := [
-	{"pos": Vector2(150, 470), "mode": "standoff"},
-	{"pos": Vector2(520, 470), "mode": "static"},
-	{"pos": Vector2(850, 470), "mode": "standoff"},
-	{"pos": Vector2(1140, 500), "mode": "static"},
-	{"pos": Vector2(1850, 460), "mode": "standoff"},
-	{"pos": Vector2(2260, 430), "mode": "static"},
-	{"pos": Vector2(3300, 560), "mode": "standoff"},
-	{"pos": Vector2(3600, 560), "mode": "static"},
-	{"pos": Vector2(4180, 500), "mode": "static"},
-	{"pos": Vector2(4620, 400), "mode": "standoff"},
-	{"pos": Vector2(5080, 490), "mode": "static"},
-	{"pos": Vector2(5560, 370), "mode": "standoff"},
-	{"pos": Vector2(6100, 520), "mode": "static"},
-]
-var spawn_i := 0
+var last_ground := Vector2.ZERO
 
 const MAX_HEALTH:=5
 const KNOCKBACK:=400.0
@@ -195,21 +216,45 @@ func _ready():
 	_apply_weapon(0)
 
 	start_pos = player.global_position
+	last_ground = start_pos
 	_load_best()
+	_setup_theme()
 	_build_parallax()
 	_build_hud()
 	_build_audio()
+	_build_ground()
 	_build_platforms()
-	_build_terrain()
+	_build_props()
 	_build_goal()
-	_start_run()
+	_place_enemies()
 
-# Distant hill silhouettes on parallax layers for depth.
+# Swap the night scene for a daytime jungle look.
+func _setup_theme():
+	for n in ["Stars", "Moon", "MoonGlow", "Fire", "Smoke", "Embers"]:
+		var node := get_node_or_null(NodePath(n))
+		if node:
+			node.visible = false
+	rain_drops.emitting = false
+	var sun := Sprite2D.new()
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	sun.material = mat
+	sun.texture = GLOW
+	sun.modulate = Color(1.0, 0.95, 0.7, 0.5)
+	sun.scale = Vector2(6, 6)
+	sun.position = Vector2(900, 120)
+	sun.z_index = -90
+	var slayer := CanvasLayer.new()
+	slayer.layer = -15
+	add_child(slayer)
+	slayer.add_child(sun)
+
+# Distant jungle hill silhouettes on parallax layers for depth.
 func _build_parallax():
 	var pb := ParallaxBackground.new()
 	add_child(pb)
-	_hill_layer(pb, 0.2, Color(0.12, 0.11, 0.22), 470.0, 150.0)
-	_hill_layer(pb, 0.42, Color(0.16, 0.14, 0.28), 560.0, 110.0)
+	_hill_layer(pb, 0.15, JUNGLE_SKY_FAR, 430.0, 150.0)
+	_hill_layer(pb, 0.38, JUNGLE_SKY_MID, 540.0, 120.0)
 
 func _hill_layer(pb: ParallaxBackground, motion: float, color: Color, base_y: float, amp: float):
 	var layer := ParallaxLayer.new()
@@ -267,22 +312,52 @@ func _build_goal():
 			_win()
 	)
 
-# Generate the floating platforms as rows of destructible chunks.
-func _build_platforms():
-	var color := Color(0.98, 0.75, 0.35)
-	for r in PLATFORM_RECTS:
+# Solid, non-destructible ground segments (reliable footing + pits between).
+func _build_ground():
+	for r in LEVEL_GROUND:
 		var x0: float = r[0]
 		var y0: float = r[1]
 		var w: float = r[2]
 		var h: float = r[3]
-		var cols: int = maxi(1, int(round(w / 44.0)))
-		var rows: int = maxi(1, int(round(h / 44.0)))
+		var body := StaticBody2D.new()
+		body.collision_layer = 1
+		body.collision_mask = 0
+		body.z_index = -1
+		add_child(body)
+		var quad := PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + h), Vector2(x0, y0 + h)])
+		var poly := Polygon2D.new()
+		poly.color = JUNGLE_DIRT
+		poly.polygon = quad
+		body.add_child(poly)
+		# grass lip on top
+		var grass := Polygon2D.new()
+		grass.color = JUNGLE_GRASS
+		grass.polygon = PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + 16), Vector2(x0, y0 + 16)])
+		body.add_child(grass)
+		var occ := LightOccluder2D.new()
+		var op := OccluderPolygon2D.new()
+		op.polygon = quad
+		occ.occluder = op
+		body.add_child(occ)
+		var cs := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(w, h)
+		cs.shape = shape
+		cs.position = Vector2(x0 + w * 0.5, y0 + h * 0.5)
+		body.add_child(cs)
+
+# Generate the grass ledges as rows of destructible chunks.
+func _build_platforms():
+	for r in LEVEL_PLATFORMS:
+		var x0: float = r[0]
+		var y0: float = r[1]
+		var w: float = r[2]
+		var h: float = r[3]
+		var cols: int = maxi(1, int(round(w / CHUNK_CELL)))
 		var cw: float = w / float(cols)
-		var ch: float = h / float(rows)
 		for c in cols:
-			for rr in rows:
-				var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + ch * (float(rr) + 0.5))
-				_make_chunk(center, cw, ch, color)
+			var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + h * 0.5)
+			_make_chunk(center, cw, h, JUNGLE_GRASS)
 
 func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	var body := StaticBody2D.new()
@@ -312,19 +387,14 @@ func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	cs.shape = shape
 	body.add_child(cs)
 
-	bg_y = camera.global_position.y
-
-# Destructible cover: crate walls and explosive barrels on solid surfaces.
-func _build_terrain():
-	_build_wall(Vector2(360, 617), 2, 3)
-	_build_wall(Vector2(760, 617), 2, 2)
-	_build_wall(Vector2(3300, 673), 2, 2)
-	_build_wall(Vector2(3620, 673), 2, 3)
-	for p in [Vector2(600, 600), Vector2(660, 600), Vector2(880, 600),
-			Vector2(3200, 656), Vector2(3720, 656), Vector2(3760, 656)]:
+# Explosive barrels and crate cover walls placed through the level.
+func _build_props():
+	for p in LEVEL_BARRELS:
 		var b := BARREL.instantiate()
 		b.global_position = p
 		add_child(b)
+	for w in LEVEL_WALLS:
+		_build_wall(Vector2(w[0], w[1]), int(w[2]), int(w[3]))
 
 func _build_wall(bottom_left: Vector2, cols: int, rows: int):
 	for cx in cols:
@@ -332,6 +402,43 @@ func _build_wall(bottom_left: Vector2, cols: int, rows: int):
 			var bl := BLOCK.instantiate()
 			bl.global_position = bottom_left + Vector2(cx * BLOCK_SIZE, -cy * BLOCK_SIZE)
 			add_child(bl)
+
+# Place the whole roster of enemies for the level (no waves).
+func _place_enemies():
+	for e in LEVEL_ENEMIES:
+		_make_enemy(int(e[0]), int(e[1]), e[2])
+
+func _make_enemy(x: int, y: int, kind: String):
+	var scene: PackedScene = ENEMY
+	match kind:
+		"rush": scene = ENEMY_RUSHER
+		"heavy": scene = ENEMY_HEAVY
+		"gren": scene = ENEMY_GRENADIER
+		"alarm": scene = ENEMY_ALARM
+		"turret": scene = ENEMY_GUNNER
+		"big": scene = ENEMY_BIG
+		_: scene = ENEMY
+	var en: CharacterBody2D = scene.instantiate()
+	if kind == "turret":
+		en.move_mode = "static"
+	en.global_position = Vector2(x, y)
+	add_child(en)
+	enemies_alive += 1
+
+func spawn_reinforcement(pos: Vector2):
+	for i in 2:
+		var r := ENEMY_RUSHER.instantiate()
+		r.global_position = pos + Vector2(randf_range(-60, 60), -30)
+		add_child(r)
+		enemies_alive += 1
+
+func enemy_explode(pos: Vector2, radius: float):
+	_add_glow(pos, Color(1.0, 0.55, 0.2, 0.9), 0.35, 3.2, 0.3)
+	_burst(FX_DUST, pos)
+	add_shake(8.0)
+	play_sfx("explode")
+	if player.global_position.distance_to(pos) < radius:
+		damage_player(1, pos)
 
 # Central explosion used by grenades and barrels: FX, area damage to enemies,
 # destructibles, and the player, plus shake and sound.
@@ -538,11 +645,13 @@ func _check_best():
 		if best_label:
 			best_label.text = "BEST  W%d  •  %d" % [best_wave, best_score]
 
-func _start_run():
+# Restart the whole level from the beginning (used after winning).
+func _restart_level():
 	for e in get_tree().get_nodes_in_group("enemies"):
 		e.queue_free()
+	for p in get_tree().get_nodes_in_group("pickups"):
+		p.queue_free()
 	enemies_alive = 0
-	wave = 0
 	kills = 0
 	score = 0
 	combo = 0
@@ -554,38 +663,13 @@ func _start_run():
 		combo_label.visible = false
 	if win_label:
 		win_label.visible = false
-	_next_wave()
-
-func _next_wave():
-	wave += 1
-	spawning = true
-	spawn_i = 0
-	if wave_label:
-		wave_label.text = "WAVE %d" % wave
-	var count: int = min(3 + wave, FIXED_SPAWNS.size())
-	for i in count:
-		get_tree().create_timer(i * 0.3).timeout.connect(_spawn_one)
-	get_tree().create_timer(count * 0.28 + 0.15).timeout.connect(func():
-		spawning = false
-		if enemies_alive <= 0:
-			get_tree().create_timer(1.5).timeout.connect(_next_wave)
-	)
-
-func _spawn_one():
-	# Spawn at fixed placements; static spots become orange turrets, patrol
-	# spots become purple walkers. A few become big green tanks in later waves.
-	var entry = FIXED_SPAWNS[spawn_i % FIXED_SPAWNS.size()]
-	spawn_i += 1
-	var scene := ENEMY_GUNNER if entry.mode == "static" else ENEMY
-	if wave >= 3 and randf() < 0.18:
-		scene = ENEMY_BIG
-	var e: CharacterBody2D = scene.instantiate()
-	e.move_mode = entry.mode
-	e.can_shoot = true
-	e.max_health = e.max_health + int(wave / 2)
-	e.global_position = entry.pos
-	add_child(e)
-	enemies_alive += 1
+	health = MAX_HEALTH
+	_update_health_hud()
+	player.velocity = Vector2.ZERO
+	player.global_position = start_pos
+	last_ground = start_pos
+	invuln = INVULN_TIME
+	_place_enemies()
 
 func _build_hud():
 	var layer := CanvasLayer.new()
@@ -628,7 +712,7 @@ func _build_hud():
 	var vp := get_viewport().get_visible_rect().size
 
 	wave_label = Label.new()
-	wave_label.text = "WAVE 1"
+	wave_label.text = "► REACH THE CHOPPER"
 	wave_label.size = Vector2(vp.x, 54)
 	wave_label.position = Vector2(0, 20)
 	wave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -715,8 +799,6 @@ func add_kill():
 	_update_combo_hud()
 	add_shake(3.0)
 	_check_best()
-	if enemies_alive <= 0 and not spawning and not won:
-		get_tree().create_timer(2.0).timeout.connect(_next_wave)
 
 func _update_combo_hud():
 	if not combo_label:
@@ -731,12 +813,15 @@ func _update_combo_hud():
 		combo_label.visible = false
 
 func _respawn():
+	# Death mid-level: respawn at the last safe ground; keep the level state.
 	health = MAX_HEALTH
 	_update_health_hud()
+	combo = 0
+	if combo_label:
+		combo_label.visible = false
 	player.velocity = Vector2.ZERO
-	player.global_position = start_pos
+	player.global_position = last_ground + Vector2(0, -80)
 	invuln = INVULN_TIME
-	_start_run()
 
 func _input(event):
 	if won:
@@ -744,11 +829,7 @@ func _input(event):
 			or (event is InputEventMouseButton and event.pressed) \
 			or (event is InputEventKey and event.pressed and not event.echo)
 		if go:
-			health = MAX_HEALTH
-			_update_health_hud()
-			player.velocity = Vector2.ZERO
-			player.global_position = start_pos
-			_start_run()
+			_restart_level()
 		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
@@ -908,9 +989,18 @@ func _physics_process(delta):
 
 	if player.is_on_floor():
 		jumps_left = MAX_JUMPS
+		last_ground = player.global_position
 		if not was_on_floor:
 			_squash_land()
 			add_shake(4.0)
+
+	# Fell into a pit -> lose a life and respawn at the last safe ground.
+	if player.global_position.y > 1250.0 and not won:
+		damage_player(2, player.global_position + Vector2(0, 200))
+		if health > 0:
+			player.velocity = Vector2.ZERO
+			player.global_position = last_ground + Vector2(0, -90)
+			invuln = INVULN_TIME
 
 	if not is_rolling:
 		var target_tilt: float = 0.0
