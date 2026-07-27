@@ -30,8 +30,8 @@ color_ramp = SubResource("DustGradTex")
 
 [node name="FxDust" type="GPUParticles2D"]
 emitting = false
-amount = 11
-lifetime = 0.85
+amount = 7
+lifetime = 0.8
 one_shot = true
 explosiveness = 1.0
 texture = ExtResource("2")

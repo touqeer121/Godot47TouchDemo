@@ -199,8 +199,8 @@ func _build_platforms():
 		var y0: float = r[1]
 		var w: float = r[2]
 		var h: float = r[3]
-		var cols: int = maxi(1, int(round(w / 32.0)))
-		var rows: int = maxi(1, int(round(h / 32.0)))
+		var cols: int = maxi(1, int(round(w / 44.0)))
+		var rows: int = maxi(1, int(round(h / 44.0)))
 		var cw: float = w / float(cols)
 		var ch: float = h / float(rows)
 		for c in cols:
@@ -274,7 +274,7 @@ func explode(pos: Vector2, radius: float, damage: int):
 			d.take_damage(999, pos)   # barrels chain, crates shatter
 	# A few chunky terrain-debris bursts across the crater (not one per cell).
 	if carved:
-		for i in 4:
+		for i in 3:
 			var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * radius * 0.5
 			_burst(FX_DEBRIS, pos + off, Color(0.98, 0.75, 0.35))
 	if player.global_position.distance_to(pos) < radius * 0.72:

@@ -21,8 +21,8 @@ scale_max = 0.34
 
 [node name="FxDebris" type="GPUParticles2D"]
 emitting = false
-amount = 16
-lifetime = 0.9
+amount = 10
+lifetime = 0.85
 one_shot = true
 explosiveness = 1.0
 texture = ExtResource("2")
