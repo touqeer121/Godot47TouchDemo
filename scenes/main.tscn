@@ -214,10 +214,9 @@ position = Vector2(250, 568.5)
 collision_layer = 2
 collision_mask = 1
 
-[node name="Sprite2D" type="Sprite2D" parent="Player" unique_id=679802882]
-modulate = Color(1, 0.18561426, 0.26167744, 1)
-scale = Vector2(1.008, 1.008)
-texture = ExtResource("2_0wfyh")
+[node name="Sprite2D" type="AnimatedSprite2D" parent="Player" unique_id=679802882]
+scale = Vector2(1.35, 1.35)
+position = Vector2(0, 6)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=677433230]
 shape = SubResource("PlayerShape")

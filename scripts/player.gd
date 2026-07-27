@@ -1,7 +1,8 @@
 extends Node2D
 
 @onready var player: CharacterBody2D = $Player
-@onready var sprite: Sprite2D = $Player/Sprite2D
+@onready var sprite: AnimatedSprite2D = $Player/Sprite2D
+const CHAR_SHEET := preload("res://assets/characters/commando_sheet.png")
 @onready var camera: Camera2D = $Camera2D
 @onready var rain_drops: GPUParticles2D = $RainDrops
 @onready var gun: Node2D = $Player/Gun
@@ -158,6 +159,7 @@ const EDGE_MARGIN_X:=123.2
 const EDGE_MARGIN_Y:=116.8
 
 func _ready():
+	_setup_player_anim()
 	base_scale = sprite.scale
 	for icon in [left_icon, right_icon, jump_icon, melee_icon]:
 		icon_base_scale[icon] = icon.scale
@@ -188,6 +190,50 @@ func _ready():
 	_build_props()
 	_build_goal()
 	_place_enemies()
+
+# Build the character's SpriteFrames from the sheet (72x96 cells) and start it.
+func _setup_player_anim():
+	var fw := 72
+	var fh := 96
+	var defs := {
+		"idle": {"row": 0, "cols": [0, 1], "fps": 3.0, "loop": true},
+		"run": {"row": 1, "cols": [0, 1, 2, 3, 4, 5], "fps": 13.0, "loop": true},
+		"jump": {"row": 2, "cols": [0], "fps": 1.0, "loop": false},
+		"fall": {"row": 2, "cols": [1], "fps": 1.0, "loop": false},
+		"shoot": {"row": 2, "cols": [2], "fps": 1.0, "loop": false},
+		"melee": {"row": 3, "cols": [0, 1, 2], "fps": 18.0, "loop": false},
+		"hurt": {"row": 4, "cols": [0], "fps": 1.0, "loop": false},
+		"death": {"row": 4, "cols": [0, 1], "fps": 7.0, "loop": false},
+		"climb": {"row": 5, "cols": [0, 1], "fps": 8.0, "loop": true},
+	}
+	var sf := SpriteFrames.new()
+	sf.remove_animation("default")
+	for an in defs:
+		var d = defs[an]
+		sf.add_animation(an)
+		sf.set_animation_loop(an, d.loop)
+		sf.set_animation_speed(an, d.fps)
+		for c in d.cols:
+			var at := AtlasTexture.new()
+			at.atlas = CHAR_SHEET
+			at.region = Rect2(c * fw, d.row * fh, fw, fh)
+			sf.add_frame(an, at)
+	sprite.sprite_frames = sf
+	sprite.play("idle")
+
+# Pick the body animation from movement state; melee/hurt play through first.
+func _update_anim():
+	if sprite.animation in ["melee", "hurt"] and sprite.is_playing():
+		sprite.flip_h = facing < 0
+		return
+	var a := "idle"
+	if not player.is_on_floor():
+		a = "jump" if player.velocity.y < 0.0 else "fall"
+	elif absf(player.velocity.x) > 20.0:
+		a = "run"
+	if sprite.animation != a:
+		sprite.play(a)
+	sprite.flip_h = facing < 0
 
 # Swap the night scene for a daytime jungle look.
 func _setup_theme():
@@ -830,6 +876,7 @@ func damage_player(amount: int, from_pos: Vector2):
 	player.velocity.y = -320.0
 	add_shake(9.0)
 	play_sfx("hurt")
+	sprite.play("hurt")
 	if health <= 0:
 		_respawn()
 
@@ -1055,6 +1102,8 @@ func _physics_process(delta):
 			target_tilt = TILT_ANGLE
 		sprite.rotation = lerp_angle(sprite.rotation, target_tilt, TILT_LERP_SPEED * delta)
 
+	_update_anim()
+
 	camera.global_position = player.global_position
 
 	# Rain pans horizontally with the camera but only slowly drifts
@@ -1108,6 +1157,7 @@ func _on_melee_down():
 			dd.take_damage(2, player.global_position)
 
 	_slash_fx(center, d)
+	sprite.play("melee")
 	add_shake(2.5)
 	play_sfx("throw")
 
