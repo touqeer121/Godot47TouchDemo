@@ -512,6 +512,15 @@ func _input(event):
 			_release_aim()
 	elif event is InputEventScreenDrag and event.index == aim_touch_index:
 		_update_aim(event.position)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		# Keyboard controls for desktop testing.
+		match event.keycode:
+			KEY_SPACE, KEY_W, KEY_UP:
+				_on_jump_down()
+			KEY_F, KEY_SHIFT:
+				_on_melee_down()
+			KEY_Q, KEY_TAB:
+				_on_weapon_switch()
 
 func _update_aim(pos: Vector2):
 	var offset := pos - aim_stick.position
@@ -620,13 +629,24 @@ func _physics_process(delta):
 		knockback_timer -= delta
 		player.velocity.x = move_toward(player.velocity.x, 0.0, 1400.0 * delta)
 	else:
+		# Touch buttons OR keyboard (A/D, arrows) for desktop testing.
+		var mleft := left or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT)
+		var mright := right or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)
 		player.velocity.x = 0.0
-		if left:
+		if mleft:
 			player.velocity.x -= SPEED
 			facing = -1
-		if right:
+		if mright:
 			player.velocity.x += SPEED
 			facing = 1
+
+	# Desktop: aim toward the mouse and fire while holding left mouse button.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		var to := get_global_mouse_position() - player.global_position
+		if to.length() > 4.0:
+			aim_vector = to.normalized()
+	elif aim_touch_index == -1:
+		aim_vector = Vector2.ZERO
 
 	if invuln > 0.0:
 		invuln -= delta
@@ -647,9 +667,9 @@ func _physics_process(delta):
 
 	if not is_rolling:
 		var target_tilt: float = 0.0
-		if left:
+		if player.velocity.x < -1.0:
 			target_tilt = -TILT_ANGLE
-		elif right:
+		elif player.velocity.x > 1.0:
 			target_tilt = TILT_ANGLE
 		sprite.rotation = lerp_angle(sprite.rotation, target_tilt, TILT_LERP_SPEED * delta)
 
