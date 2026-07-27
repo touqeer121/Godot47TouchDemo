@@ -98,8 +98,9 @@ func _move_toward_player():
 		dir = want
 		velocity.x = dir * speed
 
-# Approach until at shooting distance, then hold and fire (backing off if the
-# player gets too close). Never rushes in to melee, never walks off a ledge.
+# Advance until within shooting distance, then hold and fire. Doesn't
+# retreat if the player closes in (Contra/Broforce style), and never
+# rushes to melee or walks off a ledge.
 func _standoff():
 	velocity.x = 0.0
 	if not is_instance_valid(target):
@@ -107,17 +108,11 @@ func _standoff():
 	var dx := target.global_position.x - global_position.x
 	var face := 1 if dx > 0.0 else -1
 	dir = face
-	var adx := absf(dx)
-	var mv := 0
-	if adx > STANDOFF_DIST + 50.0:
-		mv = face
-	elif adx < STANDOFF_DIST - 50.0:
-		mv = -face
-	if mv != 0:
-		floor_check.position.x = fc_offset * mv
+	if absf(dx) > STANDOFF_DIST:
+		floor_check.position.x = fc_offset * face
 		floor_check.force_raycast_update()
 		if not (is_on_floor() and not floor_check.is_colliding()):
-			velocity.x = mv * speed
+			velocity.x = face * speed
 
 func _shoot_at(pos: Vector2):
 	var to := (pos - gun.global_position).normalized()
