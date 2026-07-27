@@ -144,12 +144,16 @@ func _die():
 	dead = true
 	body_shape.set_deferred("disabled", true)
 	touch_box.set_deferred("monitoring", false)
+	gun.visible = false
 	get_tree().call_group("player_controller", "add_kill")
 	get_tree().call_group("player_controller", "play_sfx", "kill")
+	get_tree().call_group("player_controller", "spawn_debris", global_position, base_color, 8)
+	# Fling the corpse rather than a tidy squash.
 	var t := create_tween()
-	t.tween_property(sprite, "scale", base_scale * Vector2(1.7, 0.2), 0.09).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(sprite, "modulate:a", 0.0, 0.2)
-	t.parallel().tween_property(sprite, "rotation", randf_range(-1.0, 1.0), 0.2)
+	t.tween_property(sprite, "position", sprite.position + Vector2(randf_range(-40, 40), -70), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(sprite, "scale", base_scale * Vector2(1.4, 0.4), 0.1)
+	t.parallel().tween_property(sprite, "modulate:a", 0.0, 0.25)
+	t.parallel().tween_property(sprite, "rotation", randf_range(-3.0, 3.0), 0.25)
 	t.tween_callback(queue_free)
 
 func _on_touch(body):

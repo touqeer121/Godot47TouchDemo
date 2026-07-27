@@ -11,11 +11,13 @@ extends Node2D
 @onready var left_button: TouchScreenButton = $CanvasLayer/Left
 @onready var right_button: TouchScreenButton = $CanvasLayer/Right
 @onready var jump_button: TouchScreenButton = $CanvasLayer/Jump
+@onready var melee_button: TouchScreenButton = $CanvasLayer/Melee
 @onready var weapon_button: TouchScreenButton = $CanvasLayer/WeaponSwitch
 @onready var weapon_icon: Sprite2D = $CanvasLayer/WeaponSwitch/Icon
 @onready var left_icon: Sprite2D = $CanvasLayer/Left/Icon
 @onready var right_icon: Sprite2D = $CanvasLayer/Right/Icon
 @onready var jump_icon: Sprite2D = $CanvasLayer/Jump/Icon
+@onready var melee_icon: Sprite2D = $CanvasLayer/Melee/Icon
 @onready var aim_stick: Node2D = $CanvasLayer/AimStick
 @onready var aim_knob: Sprite2D = $CanvasLayer/AimStick/Knob
 
@@ -24,6 +26,13 @@ const GRENADE := preload("res://scenes/grenade.tscn")
 const ENEMY := preload("res://scenes/enemy.tscn")
 const ENEMY_BIG := preload("res://scenes/enemy_big.tscn")
 const ENEMY_GUNNER := preload("res://scenes/enemy_gunner.tscn")
+const BARREL := preload("res://scenes/barrel.tscn")
+const BLOCK := preload("res://scenes/block.tscn")
+const GLOW := preload("res://light_glow.svg")
+
+const BLOCK_SIZE := 46.0
+const MELEE_REACH := 165.0
+const MELEE_COOLDOWN := 0.32
 
 const TEX_PISTOL := preload("res://assets/weapons/pistol.png")
 const TEX_SMG := preload("res://assets/weapons/pistol3.png")
@@ -84,6 +93,7 @@ var spawning:=false
 var best_wave:=0
 var best_kills:=0
 var sfx:={}
+var melee_timer:=0.0
 
 const SAVE_PATH := "user://save.cfg"
 # Fixed enemy placements across the level, each with a behaviour.
@@ -139,7 +149,7 @@ const EDGE_MARGIN_Y:=116.8
 
 func _ready():
 	base_scale = sprite.scale
-	for icon in [left_icon, right_icon, jump_icon]:
+	for icon in [left_icon, right_icon, jump_icon, melee_icon]:
 		icon_base_scale[icon] = icon.scale
 		icon_base_alpha[icon] = icon.modulate.a
 
@@ -147,6 +157,7 @@ func _ready():
 	left_button.position = Vector2(EDGE_MARGIN_X, vp_size.y - EDGE_MARGIN_Y)
 	right_button.position = Vector2(EDGE_MARGIN_X + 170.0, vp_size.y - EDGE_MARGIN_Y)
 	jump_button.position = Vector2(vp_size.x - EDGE_MARGIN_X, vp_size.y - EDGE_MARGIN_Y)
+	melee_button.position = Vector2(vp_size.x - EDGE_MARGIN_X - 168.0, vp_size.y - EDGE_MARGIN_Y)
 	aim_stick.position = Vector2(vp_size.x - 190.0, vp_size.y - 360.0)
 	weapon_button.position = Vector2(vp_size.x - 80.0, 90.0)
 
@@ -159,9 +170,75 @@ func _ready():
 	_load_best()
 	_build_hud()
 	_build_audio()
+	_build_terrain()
 	_start_run()
 
 	bg_y = camera.global_position.y
+
+# Destructible cover: crate walls and explosive barrels on solid surfaces.
+func _build_terrain():
+	_build_wall(Vector2(360, 617), 2, 3)
+	_build_wall(Vector2(760, 617), 2, 2)
+	_build_wall(Vector2(3300, 673), 2, 2)
+	_build_wall(Vector2(3620, 673), 2, 3)
+	for p in [Vector2(600, 600), Vector2(660, 600), Vector2(880, 600),
+			Vector2(3200, 656), Vector2(3720, 656), Vector2(3760, 656)]:
+		var b := BARREL.instantiate()
+		b.global_position = p
+		add_child(b)
+
+func _build_wall(bottom_left: Vector2, cols: int, rows: int):
+	for cx in cols:
+		for cy in rows:
+			var bl := BLOCK.instantiate()
+			bl.global_position = bottom_left + Vector2(cx * BLOCK_SIZE, -cy * BLOCK_SIZE)
+			add_child(bl)
+
+# Central explosion used by grenades and barrels: FX, area damage to enemies,
+# destructibles, and the player, plus shake and sound.
+func explode(pos: Vector2, radius: float, damage: int):
+	_explosion_fx(pos)
+	add_shake(13.0)
+	play_sfx("explode")
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.global_position.distance_to(pos) < radius:
+			e.take_damage(damage, pos)
+	for d in get_tree().get_nodes_in_group("destructible"):
+		if is_instance_valid(d) and d.global_position.distance_to(pos) < radius:
+			d.take_damage(999, pos)
+	if player.global_position.distance_to(pos) < radius * 0.72:
+		damage_player(1, pos)
+
+func _explosion_fx(pos: Vector2):
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	var fx := Sprite2D.new()
+	fx.texture = GLOW
+	fx.material = mat
+	fx.modulate = Color(1.0, 0.7, 0.3, 1.0)
+	fx.scale = Vector2(0.3, 0.3)
+	fx.global_position = pos
+	add_child(fx)
+	var tw := fx.create_tween()
+	tw.tween_property(fx, "scale", Vector2(3.4, 3.4), 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(fx, "modulate:a", 0.0, 0.28)
+	tw.tween_callback(fx.queue_free)
+
+func spawn_debris(pos: Vector2, color: Color, count: int):
+	for i in count:
+		var g := Sprite2D.new()
+		g.texture = CIRCLE
+		g.modulate = color
+		g.scale = Vector2.ONE * randf_range(0.14, 0.26)
+		g.global_position = pos
+		add_child(g)
+		var vel := Vector2(randf_range(-1.0, 1.0), randf_range(-1.6, -0.4)).normalized() * randf_range(160.0, 420.0)
+		var end := pos + vel * 0.5 + Vector2(0.0, 300.0)
+		var tw := g.create_tween()
+		tw.tween_property(g, "global_position", end, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(g, "modulate:a", 0.0, 0.6)
+		tw.parallel().tween_property(g, "rotation", randf_range(-6.0, 6.0), 0.6)
+		tw.tween_callback(g.queue_free)
 
 func _build_audio():
 	for nm in ["pistol", "smg", "shotgun", "throw", "hit", "kill", "explode", "jump", "hurt", "switch"]:
@@ -527,6 +604,9 @@ func _physics_process(delta):
 
 	_update_shooting(delta)
 
+	if melee_timer > 0.0:
+		melee_timer -= delta
+
 	if shake > 0.15:
 		shake = lerpf(shake, 0.0, 14.0 * delta)
 		camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
@@ -539,6 +619,43 @@ func _on_left_up(): left=false; _icon_release(left_icon)
 func _on_right_down(): right=true; _icon_press(right_icon)
 func _on_right_up(): right=false; _icon_release(right_icon)
 func _on_jump_up(): _icon_release(jump_icon)
+func _on_melee_up(): _icon_release(melee_icon)
+
+func _on_melee_down():
+	_icon_press(melee_icon)
+	if melee_timer > 0.0:
+		return
+	melee_timer = MELEE_COOLDOWN
+	var aiming := aim_vector.length() > AIM_DEADZONE
+	var d := aim_dir if aiming else Vector2(float(facing), 0.0)
+	var center := player.global_position + d * 90.0
+
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.global_position.distance_to(center) < MELEE_REACH:
+			e.take_damage(5, player.global_position)
+	for b in get_tree().get_nodes_in_group("enemy_bullets"):
+		if is_instance_valid(b) and b.global_position.distance_to(center) < MELEE_REACH:
+			b.queue_free()
+	for dd in get_tree().get_nodes_in_group("destructible"):
+		if is_instance_valid(dd) and dd.global_position.distance_to(center) < MELEE_REACH:
+			dd.take_damage(2, player.global_position)
+
+	_slash_fx(center, d)
+	add_shake(2.5)
+	play_sfx("throw")
+
+func _slash_fx(center: Vector2, d: Vector2):
+	var s := Sprite2D.new()
+	s.texture = GLOW
+	s.modulate = Color(1, 1, 1, 0.9)
+	s.global_position = center
+	s.rotation = d.angle()
+	s.scale = Vector2(0.85, 0.4)
+	add_child(s)
+	var tw := s.create_tween()
+	tw.tween_property(s, "scale", Vector2(1.5, 0.14), 0.12)
+	tw.parallel().tween_property(s, "modulate:a", 0.0, 0.14)
+	tw.tween_callback(s.queue_free)
 
 func _on_jump_down():
 	_icon_press(jump_icon)

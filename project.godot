@@ -15,8 +15,10 @@ run/main_scene="res://scenes/loading.tscn"
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0.086, 0.086, 0.165, 1)
 boot_splash/image="res://splash.png"
-boot_splash/fullsize=true
-boot_splash/use_filter=true
+
+[audio]
+
+general/ios/session_category=3
 
 [display]
 
@@ -25,10 +27,6 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation="sensor_landscape"
-
-[audio]
-
-general/ios/session_category=3
 
 [input]
 

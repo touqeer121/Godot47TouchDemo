@@ -4,6 +4,7 @@ var velocity := Vector2.ZERO
 var life := 2.2
 
 func _ready():
+	add_to_group("enemy_bullets")
 	rotation = velocity.angle() + PI / 2.0
 	body_entered.connect(_on_hit)
 	get_tree().create_timer(life).timeout.connect(queue_free)
