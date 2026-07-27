@@ -29,6 +29,10 @@ const ENEMY_GUNNER := preload("res://scenes/enemy_gunner.tscn")
 const BARREL := preload("res://scenes/barrel.tscn")
 const BLOCK := preload("res://scenes/block.tscn")
 const GLOW := preload("res://light_glow.svg")
+const RING := preload("res://ring.svg")
+const FX_DEBRIS := preload("res://scenes/fx_debris.tscn")
+const FX_DUST := preload("res://scenes/fx_dust.tscn")
+const FX_SPARKS := preload("res://scenes/fx_sparks.tscn")
 
 const BLOCK_SIZE := 46.0
 const MELEE_REACH := 165.0
@@ -195,11 +199,14 @@ func _build_platforms():
 		var y0: float = r[1]
 		var w: float = r[2]
 		var h: float = r[3]
-		var cols: int = maxi(1, int(round(w / 110.0)))
+		var cols: int = maxi(1, int(round(w / 32.0)))
+		var rows: int = maxi(1, int(round(h / 32.0)))
 		var cw: float = w / float(cols)
+		var ch: float = h / float(rows)
 		for c in cols:
-			var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + h * 0.5)
-			_make_chunk(center, cw, h, color)
+			for rr in rows:
+				var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + ch * (float(rr) + 0.5))
+				_make_chunk(center, cw, ch, color)
 
 func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	var body := StaticBody2D.new()
@@ -221,15 +228,10 @@ func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 
 	var cs := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
-	shape.size = Vector2(w, h)
+	# Overlap neighbours slightly so the player doesn't snag on cell seams.
+	shape.size = Vector2(w + 3.0, h + 1.0)
 	cs.shape = shape
 	body.add_child(cs)
-
-	var occ := LightOccluder2D.new()
-	var op := OccluderPolygon2D.new()
-	op.polygon = quad
-	occ.occluder = op
-	body.add_child(occ)
 
 	bg_y = camera.global_position.y
 
@@ -261,42 +263,70 @@ func explode(pos: Vector2, radius: float, damage: int):
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if is_instance_valid(e) and e.global_position.distance_to(pos) < radius:
 			e.take_damage(damage, pos)
+	var carved := false
 	for d in get_tree().get_nodes_in_group("destructible"):
-		if is_instance_valid(d) and d.global_position.distance_to(pos) < radius:
-			d.take_damage(999, pos)
+		if not is_instance_valid(d) or d.global_position.distance_to(pos) >= radius:
+			continue
+		if d.is_in_group("terrain"):
+			d.queue_free()   # cleared silently; central debris burst covers it
+			carved = true
+		else:
+			d.take_damage(999, pos)   # barrels chain, crates shatter
+	# A few chunky terrain-debris bursts across the crater (not one per cell).
+	if carved:
+		for i in 4:
+			var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * radius * 0.5
+			_burst(FX_DEBRIS, pos + off, Color(0.98, 0.75, 0.35))
 	if player.global_position.distance_to(pos) < radius * 0.72:
 		damage_player(1, pos)
 
-func _explosion_fx(pos: Vector2):
+func _add_glow(pos: Vector2, color: Color, from: float, to: float, dur: float):
 	var mat := CanvasItemMaterial.new()
 	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	var fx := Sprite2D.new()
 	fx.texture = GLOW
 	fx.material = mat
-	fx.modulate = Color(1.0, 0.7, 0.3, 1.0)
-	fx.scale = Vector2(0.3, 0.3)
+	fx.modulate = color
+	fx.scale = Vector2(from, from)
 	fx.global_position = pos
 	add_child(fx)
 	var tw := fx.create_tween()
-	tw.tween_property(fx, "scale", Vector2(3.4, 3.4), 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(fx, "modulate:a", 0.0, 0.28)
+	tw.tween_property(fx, "scale", Vector2(to, to), dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(fx, "modulate:a", 0.0, dur)
 	tw.tween_callback(fx.queue_free)
 
-func spawn_debris(pos: Vector2, color: Color, count: int):
-	for i in count:
-		var g := Sprite2D.new()
-		g.texture = CIRCLE
-		g.modulate = color
-		g.scale = Vector2.ONE * randf_range(0.14, 0.26)
-		g.global_position = pos
-		add_child(g)
-		var vel := Vector2(randf_range(-1.0, 1.0), randf_range(-1.6, -0.4)).normalized() * randf_range(160.0, 420.0)
-		var end := pos + vel * 0.5 + Vector2(0.0, 300.0)
-		var tw := g.create_tween()
-		tw.tween_property(g, "global_position", end, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(g, "modulate:a", 0.0, 0.6)
-		tw.parallel().tween_property(g, "rotation", randf_range(-6.0, 6.0), 0.6)
-		tw.tween_callback(g.queue_free)
+func _shockwave(pos: Vector2, to: float):
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	var r := Sprite2D.new()
+	r.texture = RING
+	r.material = mat
+	r.modulate = Color(1.0, 0.9, 0.6, 0.9)
+	r.scale = Vector2(0.2, 0.2)
+	r.global_position = pos
+	add_child(r)
+	var tw := r.create_tween()
+	tw.tween_property(r, "scale", Vector2(to, to), 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(r, "modulate:a", 0.0, 0.32)
+	tw.tween_callback(r.queue_free)
+
+func _burst(scene: PackedScene, pos: Vector2, color := Color.WHITE):
+	var b := scene.instantiate()
+	b.global_position = pos
+	if color != Color.WHITE:
+		b.modulate = color
+	add_child(b)
+
+func _explosion_fx(pos: Vector2):
+	_add_glow(pos, Color(1.0, 0.95, 0.7, 1.0), 0.25, 2.2, 0.16)   # white-hot core
+	_add_glow(pos, Color(1.0, 0.55, 0.2, 0.9), 0.4, 4.0, 0.34)    # orange fireball
+	_shockwave(pos, 3.6)
+	_burst(FX_SPARKS, pos)
+	_burst(FX_DUST, pos)
+
+func spawn_debris(pos: Vector2, color: Color, _count: int):
+	_burst(FX_DEBRIS, pos, color)
+	_burst(FX_DUST, pos)
 
 func _build_audio():
 	for nm in ["pistol", "smg", "shotgun", "throw", "hit", "kill", "explode", "jump", "hurt", "switch"]:

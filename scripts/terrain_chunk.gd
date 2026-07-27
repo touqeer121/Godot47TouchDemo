@@ -2,7 +2,7 @@ extends StaticBody2D
 
 # A destructible piece of platform. Bullets chip it, explosions blow it away,
 # melee gouges it. Set by the builder before it enters the tree.
-var health := 10
+var health := 4
 var debris_color := Color(0.98, 0.75, 0.35)
 
 func _ready():

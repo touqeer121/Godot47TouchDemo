@@ -1,0 +1,39 @@
+[gd_scene load_steps=6 format=3 uid="uid://c8mxw4rqn2kvp"]
+
+[ext_resource type="Script" path="res://scripts/fx_free.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://bnm7qnxqrxd22" path="res://light_glow.svg" id="2"]
+
+[sub_resource type="Gradient" id="DustGrad"]
+offsets = PackedFloat32Array(0, 0.25, 1)
+colors = PackedColorArray(0.7, 0.7, 0.74, 0, 0.62, 0.62, 0.66, 0.6, 0.55, 0.55, 0.6, 0)
+
+[sub_resource type="GradientTexture1D" id="DustGradTex"]
+gradient = SubResource("DustGrad")
+
+[sub_resource type="Curve" id="DustScale"]
+_data = [Vector2(0, 0.35), 0.0, 0.0, 0, 0, Vector2(1, 1.0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="ParticleProcessMaterial" id="DustMat"]
+particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 12.0
+direction = Vector3(0, -1, 0)
+spread = 55.0
+initial_velocity_min = 18.0
+initial_velocity_max = 70.0
+gravity = Vector3(0, -45, 0)
+scale_min = 0.5
+scale_max = 1.2
+scale_curve = SubResource("DustScale")
+color_ramp = SubResource("DustGradTex")
+
+[node name="FxDust" type="GPUParticles2D"]
+emitting = false
+amount = 11
+lifetime = 0.85
+one_shot = true
+explosiveness = 1.0
+texture = ExtResource("2")
+process_material = SubResource("DustMat")
+script = ExtResource("1")
