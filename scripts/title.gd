@@ -60,9 +60,19 @@ func _ready():
 	e.tween_property(title_group, "modulate:a", 1.0, 0.6)
 	e.parallel().tween_property(title_group, "position:y", vp.y * 0.40, 0.6).from(vp.y * 0.40 - 80.0).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
+var _font: SystemFont
+
+func game_font() -> SystemFont:
+	if _font == null:
+		_font = SystemFont.new()
+		_font.font_names = PackedStringArray(["Impact", "Arial Black", "Futura-CondensedExtraBold", "Avenir Next Condensed", "Helvetica Neue", "Arial"])
+		_font.font_weight = 900
+	return _font
+
 func _make_label(text: String, size: int, col: Color) -> Label:
 	var l := Label.new()
 	l.text = text
+	l.add_theme_font_override("font", game_font())
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
 	l.add_theme_constant_override("outline_size", maxi(6, size / 5))

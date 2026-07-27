@@ -40,7 +40,9 @@ const FX_SPARKS := preload("res://scenes/fx_sparks.tscn")
 const PICKUP := preload("res://scenes/pickup.tscn")
 
 const COMBO_WINDOW := 3.0
-const GOAL_X := 8700.0
+const LEVEL_END := 28000.0
+const GOAL_X := 28400.0
+var ground_segments := []
 
 const BLOCK_SIZE := 90.0
 const CHUNK_CELL := 56.0
@@ -52,47 +54,6 @@ const JUNGLE_DIRT := Color(0.40, 0.30, 0.19)
 const JUNGLE_GRASS := Color(0.33, 0.5, 0.24)
 const JUNGLE_SKY_FAR := Color(0.28, 0.42, 0.30)
 const JUNGLE_SKY_MID := Color(0.22, 0.36, 0.24)
-
-# Solid ground segments [x, y_top, w, h]; the gaps between them are pits.
-const LEVEL_GROUND := [
-	[-260.0, 700.0, 1710.0, 280.0],
-	[1720.0, 700.0, 1650.0, 280.0],
-	[3650.0, 700.0, 1750.0, 280.0],
-	[5700.0, 700.0, 1500.0, 280.0],
-	[7500.0, 700.0, 2000.0, 280.0],
-]
-
-# Destructible grass ledges [x, y_top, w, h].
-const LEVEL_PLATFORMS := [
-	[780.0, 500.0, 360.0, 58.0],
-	[1950.0, 540.0, 380.0, 58.0],
-	[2650.0, 430.0, 360.0, 58.0],
-	[3900.0, 520.0, 380.0, 58.0],
-	[4550.0, 410.0, 380.0, 58.0],
-	[6050.0, 520.0, 380.0, 58.0],
-	[6750.0, 410.0, 340.0, 58.0],
-	[7750.0, 500.0, 420.0, 58.0],
-]
-
-const LEVEL_BARRELS := [
-	Vector2(720, 637), Vector2(2050, 637), Vector2(2120, 637),
-	Vector2(4380, 637), Vector2(6080, 637), Vector2(6360, 637), Vector2(8380, 637),
-]
-
-# Crate cover walls [x_bottom_left, y_bottom, cols, rows].
-const LEVEL_WALLS := [
-	[1180.0, 655.0, 2, 3], [3060.0, 655.0, 3, 2],
-	[4920.0, 655.0, 2, 3], [6960.0, 655.0, 3, 2],
-]
-
-# Enemy placements [x, y, type]. type: walk rush heavy gren turret alarm big.
-const LEVEL_ENEMIES := [
-	[600, 560, "walk"], [1050, 560, "walk"], [1350, 560, "rush"], [950, 430, "gren"],
-	[2000, 540, "heavy"], [2350, 560, "walk"], [3050, 560, "turret"], [2150, 470, "turret"], [2750, 360, "rush"],
-	[3850, 540, "alarm"], [4300, 560, "gren"], [4750, 560, "walk"], [5150, 560, "rush"], [4050, 450, "turret"], [4650, 320, "heavy"],
-	[6000, 540, "heavy"], [6350, 560, "gren"], [6850, 540, "alarm"], [6150, 560, "rush"], [6150, 450, "turret"], [6850, 330, "turret"],
-	[7650, 560, "walk"], [8050, 560, "rush"], [8350, 540, "heavy"],
-]
 
 const TEX_PISTOL := preload("res://assets/weapons/pistol.png")
 const TEX_SMG := preload("res://assets/weapons/pistol3.png")
@@ -312,52 +273,95 @@ func _build_goal():
 			_win()
 	)
 
-# Solid, non-destructible ground segments (reliable footing + pits between).
+# Procedurally lay a long run of solid ground segments with pits between,
+# recording each segment so props/enemies/ledges can be placed on them.
 func _build_ground():
-	for r in LEVEL_GROUND:
-		var x0: float = r[0]
-		var y0: float = r[1]
-		var w: float = r[2]
-		var h: float = r[3]
-		var body := StaticBody2D.new()
-		body.collision_layer = 1
-		body.collision_mask = 0
-		body.z_index = -1
-		add_child(body)
-		var quad := PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + h), Vector2(x0, y0 + h)])
-		var poly := Polygon2D.new()
-		poly.color = JUNGLE_DIRT
-		poly.polygon = quad
-		body.add_child(poly)
-		# grass lip on top
-		var grass := Polygon2D.new()
-		grass.color = JUNGLE_GRASS
-		grass.polygon = PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + 16), Vector2(x0, y0 + 16)])
-		body.add_child(grass)
-		var occ := LightOccluder2D.new()
-		var op := OccluderPolygon2D.new()
-		op.polygon = quad
-		occ.occluder = op
-		body.add_child(occ)
-		var cs := CollisionShape2D.new()
-		var shape := RectangleShape2D.new()
-		shape.size = Vector2(w, h)
-		cs.shape = shape
-		cs.position = Vector2(x0 + w * 0.5, y0 + h * 0.5)
-		body.add_child(cs)
+	ground_segments.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20240727
+	var x := -300.0
+	while x < LEVEL_END:
+		var w: float = rng.randf_range(1250.0, 2050.0)
+		var y := 700.0
+		_make_ground(x, y, w, 340.0)
+		ground_segments.append([x, x + w, y])
+		x += w + rng.randf_range(240.0, 320.0)   # pit gap
+	# Guaranteed solid landing pad at the extraction point.
+	_make_ground(GOAL_X - 400.0, 700.0, 1000.0, 340.0)
+	ground_segments.append([GOAL_X - 400.0, GOAL_X + 600.0, 700.0])
 
-# Generate the grass ledges as rows of destructible chunks.
+func _make_ground(x0: float, y0: float, w: float, h: float):
+	var body := StaticBody2D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.z_index = -1
+	add_child(body)
+	var quad := PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + h), Vector2(x0, y0 + h)])
+	var poly := Polygon2D.new()
+	poly.color = JUNGLE_DIRT
+	poly.polygon = quad
+	body.add_child(poly)
+	var grass := Polygon2D.new()
+	grass.color = JUNGLE_GRASS
+	grass.polygon = PackedVector2Array([Vector2(x0, y0), Vector2(x0 + w, y0), Vector2(x0 + w, y0 + 16), Vector2(x0, y0 + 16)])
+	body.add_child(grass)
+	var cs := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(w, h)
+	cs.shape = shape
+	cs.position = Vector2(x0 + w * 0.5, y0 + h * 0.5)
+	body.add_child(cs)
+
+# Scatter destructible grass ledges above the ground for verticality/cover,
+# plus the tall climbable tower set-piece.
 func _build_platforms():
-	for r in LEVEL_PLATFORMS:
-		var x0: float = r[0]
-		var y0: float = r[1]
-		var w: float = r[2]
-		var h: float = r[3]
-		var cols: int = maxi(1, int(round(w / CHUNK_CELL)))
-		var cw: float = w / float(cols)
-		for c in cols:
-			var center := Vector2(x0 + cw * (float(c) + 0.5), y0 + h * 0.5)
-			_make_chunk(center, cw, h, JUNGLE_GRASS)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	for seg in ground_segments:
+		var sx: float = seg[0]
+		var ex: float = seg[1]
+		var sy: float = seg[2]
+		if ex - sx < 560.0:
+			continue
+		for i in rng.randi_range(1, 2):
+			var lw: float = rng.randf_range(300.0, 460.0)
+			var lx: float = rng.randf_range(sx + 120.0, ex - lw - 120.0)
+			var ly: float = sy - rng.randf_range(180.0, 300.0)
+			_make_ledge(lx, ly, lw, 58.0, JUNGLE_GRASS)
+	# Tower set-piece on a wide mid-level ground segment.
+	if ground_segments.size() > 3:
+		var seg = ground_segments[int(ground_segments.size() / 2)]
+		_build_tower((float(seg[0]) + float(seg[1])) * 0.5, float(seg[2]))
+
+func _make_ledge(x0: float, y0: float, w: float, h: float, color: Color):
+	var cols: int = maxi(1, int(round(w / CHUNK_CELL)))
+	var cw: float = w / float(cols)
+	for c in cols:
+		_make_chunk(Vector2(x0 + cw * (float(c) + 0.5), y0 + h * 0.5), cw, h, color)
+
+# A tall building you can climb: a chunky destructible facade with staggered
+# interior ledges rising ~1600px. Everything here is destructible.
+func _build_tower(cx: float, base_y: float):
+	var facade := Color(0.45, 0.42, 0.40)
+	var top := base_y - 1600.0
+	# facade wall in big chunks (fewer nodes)
+	var cell := 110.0
+	var wall_w := 360.0
+	var cols: int = int(round(wall_w / cell))
+	var rows: int = int((base_y - top) / cell)
+	for c in cols:
+		for r in rows:
+			var center := Vector2(cx - wall_w * 0.5 + cell * (float(c) + 0.5), base_y - cell * (float(r) + 0.5))
+			_make_chunk(center, cell, cell, facade)
+	# staggered interior floor ledges to jump up
+	var fy := base_y - 250.0
+	var side := 1.0
+	while fy > top + 120.0:
+		_make_ledge(cx - 90.0 * side - 110.0, fy, 220.0, 44.0, JUNGLE_GRASS)
+		side = -side
+		fy -= 250.0
+	# a reward at the summit
+	_spawn_pickup("health", Vector2(cx, top + 60.0))
 
 func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	var body := StaticBody2D.new()
@@ -387,14 +391,25 @@ func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 	cs.shape = shape
 	body.add_child(cs)
 
-# Explosive barrels and crate cover walls placed through the level.
+# Scatter explosive barrels and crate cover walls along the ground.
 func _build_props():
-	for p in LEVEL_BARRELS:
-		var b := BARREL.instantiate()
-		b.global_position = p
-		add_child(b)
-	for w in LEVEL_WALLS:
-		_build_wall(Vector2(w[0], w[1]), int(w[2]), int(w[3]))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 707
+	for seg in ground_segments:
+		var sx: float = seg[0]
+		var ex: float = seg[1]
+		var gy: float = seg[2]
+		if ex - sx < 500.0:
+			continue
+		if rng.randf() < 0.75:
+			var bx: float = rng.randf_range(sx + 150.0, ex - 150.0)
+			for i in rng.randi_range(1, 3):
+				var b := BARREL.instantiate()
+				b.global_position = Vector2(bx + i * 62.0, gy - 63.0)
+				add_child(b)
+		if rng.randf() < 0.55:
+			var wx: float = rng.randf_range(sx + 200.0, ex - 320.0)
+			_build_wall(Vector2(wx, gy - 45.0), rng.randi_range(2, 3), rng.randi_range(2, 3))
 
 func _build_wall(bottom_left: Vector2, cols: int, rows: int):
 	for cx in cols:
@@ -403,10 +418,29 @@ func _build_wall(bottom_left: Vector2, cols: int, rows: int):
 			bl.global_position = bottom_left + Vector2(cx * BLOCK_SIZE, -cy * BLOCK_SIZE)
 			add_child(bl)
 
-# Place the whole roster of enemies for the level (no waves).
+# Populate the level with a hand-weighted mix of enemy types on each segment.
 func _place_enemies():
-	for e in LEVEL_ENEMIES:
-		_make_enemy(int(e[0]), int(e[1]), e[2])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 31337
+	for seg in ground_segments:
+		var sx: float = maxf(seg[0] + 200.0, 900.0)
+		var ex: float = seg[1] - 200.0
+		var gy: float = seg[2]
+		if ex <= sx:
+			continue
+		var count: int = int((ex - sx) / 640.0) + 1
+		for i in count:
+			var x: float = rng.randf_range(sx, ex)
+			_make_enemy(int(x), int(gy - 150.0), _random_kind(rng))
+
+func _random_kind(rng: RandomNumberGenerator) -> String:
+	var r := rng.randf()
+	if r < 0.30: return "walk"
+	elif r < 0.50: return "rush"
+	elif r < 0.66: return "turret"
+	elif r < 0.80: return "gren"
+	elif r < 0.92: return "heavy"
+	else: return "alarm"
 
 func _make_enemy(x: int, y: int, kind: String):
 	var scene: PackedScene = ENEMY
@@ -747,10 +781,21 @@ func _build_hud():
 
 	_update_health_hud()
 
+var _game_font: SystemFont
+
+func game_font() -> SystemFont:
+	if _game_font == null:
+		_game_font = SystemFont.new()
+		# Heavy display faces first; falls back to whatever the OS has.
+		_game_font.font_names = PackedStringArray(["Impact", "Arial Black", "Futura-CondensedExtraBold", "Avenir Next Condensed", "Helvetica Neue", "Arial"])
+		_game_font.font_weight = 900
+	return _game_font
+
 func _style_label(l: Label, size: int, col: Color):
+	l.add_theme_font_override("font", game_font())
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
-	l.add_theme_constant_override("outline_size", maxi(5, size / 5))
+	l.add_theme_constant_override("outline_size", maxi(6, size / 4))
 	l.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.09, 0.95))
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
 	l.add_theme_constant_override("shadow_offset_x", 3)

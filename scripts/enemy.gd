@@ -35,6 +35,7 @@ const GRAVITY := 2000.0
 const SHOOT_RANGE := 860.0
 const SHOOT_INTERVAL := 2.1
 const STANDOFF_DIST := 470.0
+const CULL_DIST := 1500.0
 const E_BULLET := preload("res://scenes/enemy_bullet.tscn")
 
 func _ready():
@@ -55,14 +56,20 @@ func _physics_process(delta):
 
 	velocity.y += GRAVITY * delta
 
+	# Off-screen culling: far from the player, skip AI / raycasts / shooting
+	# (keep gravity so they stay settled). Lets a huge level stay cheap.
+	var far := not is_instance_valid(target) or global_position.distance_to(target.global_position) > CULL_DIST
+	if far:
+		velocity.x = move_toward(velocity.x, 0.0, 1200.0 * delta)
+		move_and_slide()
+		return
+
 	if hurt_timer > 0.0:
 		hurt_timer -= delta
 		velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
 	elif move_mode == "static":
 		velocity.x = 0.0
-		# Face the player so shots look aimed.
-		if is_instance_valid(target):
-			dir = 1 if target.global_position.x > global_position.x else -1
+		dir = 1 if target.global_position.x > global_position.x else -1
 	elif move_mode == "standoff":
 		_standoff()
 	elif move_mode == "chase":
@@ -74,24 +81,22 @@ func _physics_process(delta):
 
 	sprite.scale.x = base_scale.x * (1.0 if dir > 0 else -1.0)
 
-	# Aim the gun at the player (kept upright with flip_v when facing left).
-	if gun and is_instance_valid(target):
+	if gun:
 		var ad := (target.global_position - gun.global_position).normalized()
 		gun.rotation = ad.angle()
 		gun.flip_v = ad.x < 0.0
 
-	if can_shoot and is_instance_valid(target):
+	if can_shoot:
 		shoot_timer -= delta
 		if shoot_timer <= 0.0 and global_position.distance_to(target.global_position) < SHOOT_RANGE:
 			shoot_timer = SHOOT_INTERVAL
 			_shoot_at(target.global_position)
 
-	if is_alarm and is_instance_valid(target):
-		if global_position.distance_to(target.global_position) < SHOOT_RANGE:
-			alarm_timer -= delta
-			if alarm_timer <= 0.0:
-				alarm_timer = ALARM_INTERVAL
-				get_tree().call_group("player_controller", "spawn_reinforcement", global_position)
+	if is_alarm and global_position.distance_to(target.global_position) < SHOOT_RANGE:
+		alarm_timer -= delta
+		if alarm_timer <= 0.0:
+			alarm_timer = ALARM_INTERVAL
+			get_tree().call_group("player_controller", "spawn_reinforcement", global_position)
 
 func _patrol():
 	floor_check.position.x = fc_offset * dir
