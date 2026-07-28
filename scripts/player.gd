@@ -12,13 +12,11 @@ const CHAR_SHEET := preload("res://assets/characters/commando_sheet.png")
 @onready var left_button: TouchScreenButton = $CanvasLayer/Left
 @onready var right_button: TouchScreenButton = $CanvasLayer/Right
 @onready var jump_button: TouchScreenButton = $CanvasLayer/Jump
-@onready var melee_button: TouchScreenButton = $CanvasLayer/Melee
 @onready var weapon_button: TouchScreenButton = $CanvasLayer/WeaponSwitch
 @onready var weapon_icon: Sprite2D = $CanvasLayer/WeaponSwitch/Icon
 @onready var left_icon: Sprite2D = $CanvasLayer/Left/Icon
 @onready var right_icon: Sprite2D = $CanvasLayer/Right/Icon
 @onready var jump_icon: Sprite2D = $CanvasLayer/Jump/Icon
-@onready var melee_icon: Sprite2D = $CanvasLayer/Melee/Icon
 @onready var aim_stick: Node2D = $CanvasLayer/AimStick
 @onready var aim_knob: Sprite2D = $CanvasLayer/AimStick/Knob
 
@@ -161,7 +159,7 @@ const EDGE_MARGIN_Y:=116.8
 func _ready():
 	_setup_player_anim()
 	base_scale = sprite.scale
-	for icon in [left_icon, right_icon, jump_icon, melee_icon]:
+	for icon in [left_icon, right_icon, jump_icon]:
 		icon_base_scale[icon] = icon.scale
 		icon_base_alpha[icon] = icon.modulate.a
 
@@ -169,7 +167,6 @@ func _ready():
 	left_button.position = Vector2(EDGE_MARGIN_X, vp_size.y - EDGE_MARGIN_Y)
 	right_button.position = Vector2(EDGE_MARGIN_X + 170.0, vp_size.y - EDGE_MARGIN_Y)
 	jump_button.position = Vector2(vp_size.x - EDGE_MARGIN_X, vp_size.y - EDGE_MARGIN_Y)
-	melee_button.position = Vector2(vp_size.x - EDGE_MARGIN_X - 168.0, vp_size.y - EDGE_MARGIN_Y)
 	aim_stick.position = Vector2(vp_size.x - 190.0, vp_size.y - 360.0)
 	weapon_button.position = Vector2(vp_size.x - 80.0, 90.0)
 
@@ -441,8 +438,11 @@ func _make_chunk(center: Vector2, w: float, h: float, color: Color):
 func _build_props():
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 707
+	# Keep a clear breathing zone around the player's spawn so it never starts
+	# boxed in by crates/barrels.
+	var clear_x: float = start_pos.x + 320.0
 	for seg in ground_segments:
-		var sx: float = seg[0]
+		var sx: float = maxf(seg[0], clear_x)
 		var ex: float = seg[1]
 		var gy: float = seg[2]
 		if ex - sx < 500.0:
@@ -542,6 +542,8 @@ func explode(pos: Vector2, radius: float, damage: int):
 				_collapse_chunk(d)   # crater edges crumble and fall
 		elif dist < radius:
 			d.take_damage(999, pos)   # barrels chain, crates shatter
+		elif dist < radius * 2.0 and d.has_method("apply_blast"):
+			d.apply_blast(pos, radius)   # survivors on the fringe get flung / topple
 	# A few chunky terrain-debris bursts across the crater (not one per cell).
 	if carved:
 		for i in 3:
@@ -1079,6 +1081,15 @@ func _physics_process(delta):
 
 	player.move_and_slide()
 
+	# Nudge already-loose crates/barrels the player walks into. Frozen (intact)
+	# props are skipped, so walls don't crumble just from being brushed. Heavy
+	# barrels (mass 30) barely budge; light crates (mass 2) scoot.
+	for i in player.get_slide_collision_count():
+		var c := player.get_slide_collision(i)
+		var col := c.get_collider()
+		if col is RigidBody2D and not col.freeze:
+			col.apply_central_impulse(-c.get_normal() * 90.0)
+
 	if player.is_on_floor():
 		jumps_left = MAX_JUMPS
 		last_ground = player.global_position
@@ -1135,10 +1146,9 @@ func _on_left_up(): left=false; _icon_release(left_icon)
 func _on_right_down(): right=true; _icon_press(right_icon)
 func _on_right_up(): right=false; _icon_release(right_icon)
 func _on_jump_up(): _icon_release(jump_icon)
-func _on_melee_up(): _icon_release(melee_icon)
 
+# Melee has no on-screen button (removed); still reachable via keyboard (F/Shift).
 func _on_melee_down():
-	_icon_press(melee_icon)
 	if melee_timer > 0.0:
 		return
 	melee_timer = MELEE_COOLDOWN

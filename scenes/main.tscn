@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://dyvdl6p37ir4v" path="res://raindrop.svg" id="7_raindrop"]
 [ext_resource type="Texture2D" uid="uid://cguie4fqmyw3x" path="res://assets/weapons/pistol.png" id="8_pistol"]
 [ext_resource type="PackedScene" uid="uid://d2y7m4qk8wxr3" path="res://scenes/enemy.tscn" id="9_enemy"]
+[ext_resource type="Texture2D" uid="uid://c0nvw1bc4b302" path="res://ui_arrow.png" id="10_arrow"]
 
 [sub_resource type="ShaderMaterial" id="StarsMaterial"]
 shader = ExtResource("5_stars")
@@ -271,36 +272,29 @@ position = Vector2(123.2, 603.2)
 shape = SubResource("ButtonShape")
 
 [node name="Icon" type="Sprite2D" parent="CanvasLayer/Left" unique_id=1989040961]
-modulate = Color(1, 1, 1, 0.3)
-scale = Vector2(1.3, 1.3)
-texture = ExtResource("3_circle")
+modulate = Color(1, 1, 1, 0.32)
+scale = Vector2(1.05, 1.05)
+flip_h = true
+texture = ExtResource("10_arrow")
 
 [node name="Right" type="TouchScreenButton" parent="CanvasLayer" unique_id=692601989]
 position = Vector2(293.2, 603.2)
 shape = SubResource("ButtonShape")
 
 [node name="Icon" type="Sprite2D" parent="CanvasLayer/Right" unique_id=1161661572]
-modulate = Color(1, 1, 1, 0.3)
-scale = Vector2(1.3, 1.3)
-texture = ExtResource("3_circle")
+modulate = Color(1, 1, 1, 0.32)
+scale = Vector2(1.05, 1.05)
+texture = ExtResource("10_arrow")
 
 [node name="Jump" type="TouchScreenButton" parent="CanvasLayer" unique_id=823145566]
 position = Vector2(1156.8, 603.2)
 shape = SubResource("ButtonShape")
 
 [node name="Icon" type="Sprite2D" parent="CanvasLayer/Jump" unique_id=1472293522]
-modulate = Color(1, 1, 1, 0.3)
-scale = Vector2(1.3, 1.3)
-texture = ExtResource("3_circle")
-
-[node name="Melee" type="TouchScreenButton" parent="CanvasLayer"]
-position = Vector2(988.8, 603.2)
-shape = SubResource("ButtonShape")
-
-[node name="Icon" type="Sprite2D" parent="CanvasLayer/Melee"]
-modulate = Color(1, 0.5, 0.52, 0.34)
+modulate = Color(1, 1, 1, 0.32)
+rotation = -1.5707964
 scale = Vector2(1.05, 1.05)
-texture = ExtResource("3_circle")
+texture = ExtResource("10_arrow")
 
 [node name="AimStick" type="Node2D" parent="CanvasLayer" unique_id=1552672962]
 position = Vector2(1070, 390)
@@ -334,6 +328,4 @@ texture = ExtResource("8_pistol")
 [connection signal="released" from="CanvasLayer/Right" to="." method="_on_right_up"]
 [connection signal="pressed" from="CanvasLayer/Jump" to="." method="_on_jump_down"]
 [connection signal="released" from="CanvasLayer/Jump" to="." method="_on_jump_up"]
-[connection signal="pressed" from="CanvasLayer/Melee" to="." method="_on_melee_down"]
-[connection signal="released" from="CanvasLayer/Melee" to="." method="_on_melee_up"]
 [connection signal="pressed" from="CanvasLayer/WeaponSwitch" to="." method="_on_weapon_switch"]
