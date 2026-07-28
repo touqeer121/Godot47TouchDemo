@@ -956,6 +956,15 @@ func _release_aim():
 	aim_vector = Vector2.ZERO
 	aim_knob.position = Vector2.ZERO
 
+# True when the mouse cursor is over one of the on-screen action buttons.
+# Used so desktop click-to-fire ignores clicks that are actually button presses.
+func _mouse_over_button() -> bool:
+	var m := get_viewport().get_mouse_position()
+	for b in [left_button, right_button, jump_button, weapon_button]:
+		if m.distance_to(b.position) <= 92.0:
+			return true
+	return false
+
 func _apply_weapon(i: int):
 	weapon_index = i
 	var w = weapons[i]
@@ -1062,8 +1071,10 @@ func _physics_process(delta):
 			player.velocity.x += SPEED
 			facing = 1
 
-	# Desktop: aim toward the mouse and fire while holding left mouse button.
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	# Desktop: aim toward the mouse and fire while holding left mouse button,
+	# but not while the cursor is over an on-screen button (so clicking Jump /
+	# move / weapon-switch doesn't also fire). Firing is aim-stick-only on touch.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not _mouse_over_button():
 		var to := get_global_mouse_position() - player.global_position
 		if to.length() > 4.0:
 			aim_vector = to.normalized()
